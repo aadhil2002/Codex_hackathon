@@ -62,7 +62,10 @@ async def _run_shopping_task(task_id: str) -> None:
             raise ValueError("SAUCEDEMO_BASE_URL must use https://www.saucedemo.com.")
         async with async_playwright() as playwright:
             workflow_stage = "launching Chromium"
-            browser = await playwright.chromium.launch(headless=True)
+            slow_mo = int(os.getenv("PLAYWRIGHT_SLOW_MO_MS", "700"))
+            if not 0 <= slow_mo <= 3000:
+                raise ValueError("PLAYWRIGHT_SLOW_MO_MS must be between 0 and 3000.")
+            browser = await playwright.chromium.launch(headless=False, slow_mo=slow_mo)
             context = await browser.new_context(viewport={"width": 1365, "height": 900})
             page = await context.new_page()
             page.set_default_timeout(8000)
@@ -178,6 +181,9 @@ async def _run_shopping_task(task_id: str) -> None:
                 task.status = "inconclusive"
                 task.error = "The rendered cart did not fully match the selected product, price, quantity and badge."
                 store.emit(task_id, "verification_completed", task.error, {"evidence": task.result.evidence})
+            if task.status == "completed":
+                # Leave the verified cart visible briefly so the user can inspect it.
+                await page.wait_for_timeout(3500)
         await browser.close()
     except asyncio.CancelledError:
         if not store.cancel_flags[task_id].is_set():

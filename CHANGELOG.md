@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T00:55:32+05:30 - Open a paced live browser window and clarify chat progress
+
+- Changed: Launch Playwright Chromium visibly in its own window, slow actions by 700 ms by default (configurable with `PLAYWRIGHT_SLOW_MO_MS`), and leave a verified cart on screen for 3.5 seconds. Show each latest workflow event in an animated, readable chat status card. Clarified the separate live browser and screenshot preview behavior in README.
+- Why: Make automation observable at a comfortable pace and keep task progress understandable in the conversation.
+- Validation: Frontend production build passed; backend tests passed (14 passed, 1 opt-in live test skipped); `git diff --check` passed. A live API task opened SauceDemo, added the Sauce Labs Backpack, verified the cart, and returned the cart screenshot. The checkout was not opened.
+- Limitations: The embedded preview still updates as screenshots rather than video; the standalone Chromium window closes shortly after verified completion.
+
 ## 2026-10-11T00:36:51+05:30 - Accept short chat turns and restore browser preview
 
 - Changed: Allowed one-character shopping turns through task creation; report cart success only after rendered-cart verification; added workflow-stage failure messages; documented running Uvicorn without reload/workers on Windows so Playwright can launch Chromium.
