@@ -10,6 +10,10 @@ Hackathon submission:
 
 The product should let users express shopping needs naturally, understand their preferences and budget, inspect a real shopping website, compare actual products, and perform browser actions while showing the user what is happening.
 
+## Current user-directed product scope
+
+The user later broadened the prototype from SauceDemo shopping to a visual browser agent for a site and task supplied by the user. OpenAI Computer Use is the action-selection interface; Playwright is retained only as the local Chromium executor. The implementation accepts public HTTPS URLs, asks for confirmation before write requests and likely purchase/booking/submission paths, and supports human handoff for sign-in, CAPTCHA, anti-bot checks, or ambiguous flows. This extension does not guarantee compatibility with every site, and it does not automate or bypass access challenges.
+
 This is the BASELINE VERSION. Prioritize a real, testable end-to-end shopping workflow over advanced personalization, support for every retailer, or a polished but nonfunctional mockup.
 
 ## Required technology
