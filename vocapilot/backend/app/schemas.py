@@ -69,6 +69,7 @@ class TaskView(BaseModel):
     input_text: str
     intent: dict | None = None
     products: list[Product] = Field(default_factory=list)
+    suggested_products: list[Product] = Field(default_factory=list)
     events: list[ActivityEvent] = Field(default_factory=list)
     screenshot: str | None = None
     page_title: str | None = None

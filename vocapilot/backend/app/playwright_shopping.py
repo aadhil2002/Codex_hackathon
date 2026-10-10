@@ -15,6 +15,27 @@ from app.verification import verify_cart_contents
 
 DEFAULT_STORE = "https://www.saucedemo.com"
 MAX_ACTIONS = 18
+SHIRT_PATTERN = re.compile(r"\b(?:t[\s-]*)?shirts?|tees?\b", re.IGNORECASE)
+COLOR_NAMES = {"black", "blue", "brown", "gray", "green", "orange", "pink", "purple", "red", "white", "yellow"}
+
+
+def _shirt_suggestions(requested_product: str, products: list[Product]) -> list[Product]:
+    if not SHIRT_PATTERN.search(requested_product):
+        return []
+    return [product for product in products if SHIRT_PATTERN.search(f"{product.name} {product.description}")]
+
+
+def _avoid_explicit_color_conflicts(requested_product: str, products: list[Product]) -> list[Product]:
+    requested_colors = set(re.findall(r"[a-z]+", requested_product.casefold())) & COLOR_NAMES
+    if not requested_colors:
+        return products
+    compatible = []
+    for product in products:
+        # Product titles identify color variants more reliably than incidental words in marketing copy.
+        listed_colors = set(re.findall(r"[a-z]+", product.name.casefold())) & COLOR_NAMES
+        if not listed_colors or requested_colors & listed_colors:
+            compatible.append(product)
+    return compatible or products
 
 
 def allowed_store_url(url: str) -> bool:
@@ -123,20 +144,28 @@ async def _run_shopping_task(task_id: str) -> None:
                 task.error = "No displayed product is within the requested budget."
                 store.emit(task_id, "error", task.error)
                 return
-            workflow_stage = "matching a product"
-            selected_index = await choose_product(
-                f"{task.input_text}\nProduct intent: {intent['requested_product']}",
-                [{"name": p.name, "description": p.description, "displayed_price": p.displayed_price,
-                  "price_value": p.price_value} for p in candidates],
+            requested_product = intent["requested_product"]
+            task.suggested_products = _shirt_suggestions(requested_product, candidates)
+            match_candidates = _avoid_explicit_color_conflicts(
+                requested_product, task.suggested_products or candidates
             )
-            if selected_index is None or not 0 <= selected_index < len(candidates):
+            workflow_stage = "matching a product"
+            if task.suggested_products and len(match_candidates) == 1:
+                selected_index = 0
+            else:
+                selected_index = await choose_product(
+                    f"{task.input_text}\nProduct intent: {requested_product}",
+                    [{"name": p.name, "description": p.description, "displayed_price": p.displayed_price,
+                      "price_value": p.price_value} for p in match_candidates],
+                )
+            if selected_index is None or not 0 <= selected_index < len(match_candidates):
                 task.status = "inconclusive"
                 task.error = "I couldn’t find a confident match in the products currently shown by the store."
                 store.emit(task_id, "error", task.error)
                 return
-            selected = candidates[selected_index]
-            store.emit(task_id, "products_compared", f"Matched the request against {len(candidates)} visible products and their displayed prices.",
-                       {"matching_names": [p.name for p in candidates], "selected_name": selected.name})
+            selected = match_candidates[selected_index]
+            store.emit(task_id, "products_compared", f"Matched the request against {len(match_candidates)} suitable visible products and their displayed prices.",
+                       {"matching_names": [p.name for p in match_candidates], "selected_name": selected.name})
             store.emit(task_id, "product_selected", f"Matched {selected.name} at the displayed price {selected.displayed_price}.",
                        {"product": selected.model_dump(), "reason": "Best model match among the visible products within budget."})
             _check_cancel(task_id)

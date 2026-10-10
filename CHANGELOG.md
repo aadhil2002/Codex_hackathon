@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T01:11:04+05:30 - Improve chat input, voice control, and shirt matching
+
+- Changed: Enter sends chat messages while Shift+Enter inserts a line break; moved the mic to a prominent labeled Speak button beside Send. Expanded natural-language product matching, start searches when the product type is clear instead of asking optional fit questions, surface all live shirt options for shirt requests, and avoid color variants explicitly named in a conflicting product title. Automatically use a sole non-conflicting shirt option when available, and disclose when the requested color is unlisted. Updated README setup/demo guidance.
+- Why: Make chat and voice controls easier to discover, and show relevant inventory options even when they appear later in the store catalog or use different wording.
+- Validation: Frontend production build passed; backend suite passed (14 passed, 1 opt-in live test skipped); `git diff --check` passed. A live chat request for a black T-shirt started without a follow-up, showed both SauceDemo shirt listings, selected Sauce Labs Bolt T-Shirt, and verified the rendered cart. Checkout was not opened.
+- Limitations: SauceDemo does not label every product color; the assistant cannot verify a shade the store does not list.
+
 ## 2026-10-11T00:55:32+05:30 - Open a paced live browser window and clarify chat progress
 
 - Changed: Launch Playwright Chromium visibly in its own window, slow actions by 700 ms by default (configurable with `PLAYWRIGHT_SLOW_MO_MS`), and leave a verified cart on screen for 3.5 seconds. Show each latest workflow event in an animated, readable chat status card. Clarified the separate live browser and screenshot preview behavior in README.

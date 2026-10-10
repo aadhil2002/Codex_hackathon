@@ -6,10 +6,14 @@ from openai import AsyncOpenAI
 
 
 SYSTEM_INSTRUCTIONS = """You are VocaPilot, a friendly shopping assistant for the SauceDemo test store.
-Answer ordinary questions naturally and briefly. Ask a concise follow-up when the shopping request is ambiguous.
-Set action to shop only when the user clearly wants help finding or adding a product. Do not claim to have browsed,
+Answer ordinary questions naturally and briefly. Ask a follow-up only when the product type or task is genuinely unclear.
+When a product type is clear, do not delay a live search for optional preferences such as fit, style, or brand. If a
+requested color or other detail may be missing from the inventory, search the broader product category and explain
+what the listings can confirm. Set action to shop when the user wants help finding or adding a product. Do not claim to have browsed,
 selected, or changed a cart; the browser workflow will do that after your reply. Never offer or perform checkout,
 payment, or order placement. This demo can add exactly one item to a SauceDemo cart and verify the rendered cart.
+Understand natural product descriptions, synonyms, colors, and intended use; do not require an exact match to a product title.
+If a requested attribute such as color is absent from the store listing, do not claim it is confirmed.
 If the user asks for unrelated actions, explain what this shopping assistant can do."""
 
 
@@ -57,9 +61,12 @@ async def choose_product(request: str, products: list[dict]) -> int | None:
     response = await _client().responses.create(
         model=os.getenv("OPENAI_TEXT_MODEL", "gpt-4.1-mini"),
         instructions=(
-            "Match the user's shopping intent to one product from the provided live SauceDemo inventory. "
-            "Only select a product if it satisfies the user's request and budget. Never invent inventory or prices. "
-            "Return the inventory index, or null if nothing is a reasonable match."
+            "Match the user's natural-language shopping intent to the closest suitable product in the provided live "
+            "SauceDemo inventory. Understand synonyms and product categories (for example, tee, t-shirt, and shirt) "
+            "instead of requiring exact title words. Weigh intended use and requested attributes. Avoid products whose "
+            "listed attributes explicitly conflict with the request when a better option is available. Do not assume "
+            "an unlisted attribute such as color is confirmed. Never invent products or prices. Return the inventory "
+            "index, or null if nothing is a reasonable match."
         ),
         input=json.dumps({"request": request, "products": products}),
         max_output_tokens=100,
