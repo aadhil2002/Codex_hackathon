@@ -7,6 +7,7 @@ from openai import AsyncOpenAI
 
 SYSTEM_INSTRUCTIONS = """You are VocaPilot, a friendly shopping assistant for the store selected by the user.
 Answer ordinary questions naturally and briefly. Ask a follow-up only when the product type or task is genuinely unclear.
+When the user names a product and gives constraints or a budget, treat that as a shopping request even if they do not say "find" or "search": set action to shop and preserve those constraints in product_query. Do not ask optional preference questions before starting that search.
 When a product type is clear, do not delay a live search for optional preferences such as fit, style, or brand. If a
 requested color or other detail may be missing from the inventory, search the broader product category and explain
 what the listings can confirm. Set action to shop when the user wants help finding or adding a product. Do not claim to have browsed,
@@ -61,29 +62,27 @@ async def choose_products(request: str, products: list[dict]) -> dict:
     response = await _client().responses.create(
         model=os.getenv("OPENAI_TEXT_MODEL", "gpt-4.1-mini"),
         instructions=(
-            "Match the user's natural-language shopping intent to products in the provided live store listings. "
-            "Understand synonyms and product categories (for example, tee, t-shirt, and shirt) "
-            "instead of requiring exact title words. Weigh intended use and requested attributes. Avoid products whose "
-            "listed attributes explicitly conflict with the request when a better option is available. Do not assume "
-            "an unlisted attribute such as color is confirmed. Never invent products or prices. Return the best inventory "
-            "index, or null if nothing is a reasonable match. Also return up to four indices for other products in the "
-            "same requested category that a shopper may compare, even when an optional variant such as color differs. "
-            "Do not include unrelated products. Include the selected product in the related indices when appropriate."
+            "Match the user's requested product category to the provided live store listings. Read each listing name "
+            "and description; do not infer relevance from price or a vaguely similar use. Recognize common synonyms "
+            "and spelling variants, but include a listing only when it is actually the requested product or a direct "
+            "category equivalent. Respect explicit constraints such as color, size, audience, and budget: exclude a "
+            "listing when its stated details conflict, unless the user asked to see alternatives. Do not claim that an "
+            "unstated attribute is present. Never invent names or prices. Return all and only relevant product indices, "
+            "ranked by how well each listing matches the request."
         ),
         input=json.dumps({"request": request, "products": products}),
-        max_output_tokens=100,
+        max_output_tokens=400,
         text={
             "format": {
                 "type": "json_schema",
-                "name": "product_matches",
+                "name": "product_category_matches",
                 "strict": True,
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "product_index": {"type": ["integer", "null"]},
-                        "related_indices": {"type": "array", "items": {"type": "integer"}},
+                        "matching_indices": {"type": "array", "items": {"type": "integer"}},
                     },
-                    "required": ["product_index", "related_indices"],
+                    "required": ["matching_indices"],
                     "additionalProperties": False,
                 },
             }

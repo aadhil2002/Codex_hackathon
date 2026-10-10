@@ -3,11 +3,11 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from openai import AuthenticationError, OpenAIError
+from openai import APIConnectionError, AuthenticationError, NotFoundError, OpenAIError, PermissionDeniedError, RateLimitError
 
 from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
-from app.playwright_shopping import allowed_store_url, run_shopping_task
-from app.schemas import ChatRequest, ChatResponse, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
+from app.playwright_shopping import allowed_store_url, cancel_shopping_task, choose_product_options, run_shopping_task, select_product
+from app.schemas import ChatRequest, ChatResponse, ProductOptions, ProductSelection, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
 from app.task_store import store
 
 router = APIRouter()
@@ -18,6 +18,26 @@ def _openai_http_error(operation: str, exc: OpenAIError) -> HTTPException:
         return HTTPException(
             status_code=503,
             detail="OpenAI rejected the configured API key. Set a valid OPENAI_API_KEY in vocapilot/backend/.env and restart the backend.",
+        )
+    if isinstance(exc, APIConnectionError):
+        return HTTPException(
+            status_code=503,
+            detail="The backend cannot connect to api.openai.com. Check outbound network or proxy access from the backend terminal; store sign-in details do not provide OpenAI access.",
+        )
+    if isinstance(exc, RateLimitError):
+        return HTTPException(
+            status_code=503,
+            detail="OpenAI rejected this request due to rate limits or account quota. Check API billing and usage for the account that owns OPENAI_API_KEY.",
+        )
+    if isinstance(exc, PermissionDeniedError):
+        return HTTPException(
+            status_code=503,
+            detail="The configured OpenAI API key cannot access this request or project. Check key permissions and project access.",
+        )
+    if isinstance(exc, NotFoundError):
+        return HTTPException(
+            status_code=503,
+            detail="The configured OpenAI model is unavailable to this project. Check OPENAI_TEXT_MODEL and model access in the API project.",
         )
     return HTTPException(
         status_code=502,
@@ -106,6 +126,26 @@ async def get_task(task_id: str) -> TaskView:
     return task
 
 
+@router.post("/tasks/{task_id}/select", response_model=TaskView)
+async def choose_task_product(task_id: str, request: ProductSelection) -> TaskView:
+    if task_id not in store.tasks:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    try:
+        return await select_product(task_id, request.store_ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/tasks/{task_id}/options", response_model=TaskView)
+async def choose_task_options(task_id: str, request: ProductOptions) -> TaskView:
+    if task_id not in store.tasks:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    try:
+        return await choose_product_options(task_id, request.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.get("/tasks/{task_id}/events")
 async def task_events(task_id: str) -> StreamingResponse:
     if task_id not in store.tasks:
@@ -136,6 +176,6 @@ async def cancel_task(task_id: str) -> TaskView:
     task = store.tasks.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found.")
-    if task.status in {"queued", "running"}:
-        store.cancel_flags[task_id].set()
+    if task.status in {"queued", "running", "awaiting_selection", "awaiting_options"}:
+        await cancel_shopping_task(task_id)
     return task

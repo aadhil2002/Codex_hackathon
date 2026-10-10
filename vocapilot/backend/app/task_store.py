@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
+from typing import Any
 from uuid import uuid4
 
 from app.schemas import ActivityEvent, TaskCreate, TaskView
@@ -12,6 +13,8 @@ class TaskStore:
         self.changed: dict[str, asyncio.Condition] = {}
         # Credentials live only while a task is active and are never part of TaskView.
         self.credentials: dict[str, tuple[str, str]] = {}
+        # A headed browser remains open while a shopper reviews products and options.
+        self.sessions: dict[str, Any] = {}
 
     def create(self, request: TaskCreate) -> TaskView:
         task_id = str(uuid4())

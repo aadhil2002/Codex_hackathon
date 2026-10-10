@@ -23,6 +23,26 @@ export async function createShoppingTask(inputText: string, intent: Record<strin
   return data
 }
 
+export async function selectProduct(taskId: string, storeRef: string): Promise<Task> {
+  const response = await fetch(`${API}/tasks/${taskId}/select`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_ref: storeRef }),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail ?? 'Could not open this product. Please choose another one.')
+  return data
+}
+
+export async function selectProductOptions(taskId: string, options: Record<string, string>): Promise<Task> {
+  const response = await fetch(`${API}/tasks/${taskId}/options`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail ?? 'Could not apply those product options.')
+  return data
+}
+
 export async function transcribeAudio(audio: Blob): Promise<string> {
   const form = new FormData()
   form.append('file', audio, 'voice-request.webm')
@@ -55,7 +75,7 @@ export async function cancelTask(id: string): Promise<void> {
 export function subscribeToTask(id: string, onEvent: () => void): EventSource {
   const source = new EventSource(`${API}/tasks/${id}/events`)
   source.onmessage = onEvent
-  for (const type of ['task_created', 'task_started', 'intent_parsed', 'browser_navigated', 'page_updated', 'products_observed', 'products_compared', 'product_selected', 'cart_updated', 'verification_started', 'verification_completed', 'task_completed', 'task_failed', 'task_cancelled', 'error']) {
+  for (const type of ['task_created', 'task_started', 'intent_parsed', 'browser_navigated', 'page_updated', 'products_observed', 'products_compared', 'awaiting_selection', 'awaiting_options', 'options_checked', 'product_selected', 'cart_updated', 'verification_started', 'verification_completed', 'checkout_manual', 'checkout_opened', 'checkout_unavailable', 'task_completed', 'task_failed', 'task_cancelled', 'error']) {
     source.addEventListener(type, onEvent)
   }
   return source

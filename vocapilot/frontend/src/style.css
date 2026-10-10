@@ -73,3 +73,35 @@ html,body,#root{height:100%;overflow:hidden}.app-shell{height:100dvh;max-width:1
 .profile-save:hover{background:#354d35}
 @media(max-width:900px){.chat-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(130px,24%) minmax(0,1fr);gap:10px}.progress-sidebar{grid-column:1;grid-row:1;height:auto;min-height:0;max-height:none}.conversation{grid-column:1;grid-row:2;min-height:0}.timeline{padding-top:14px}.browser-sidebar{display:none}}
 @media(max-width:650px){.app-shell{padding:0 12px}.content{padding-top:10px}.intro{margin-bottom:8px}.eyebrow{font-size:9px}h1{font-size:25px}.intro p{font-size:12px}.chat-layout{grid-template-rows:minmax(105px,23%) minmax(0,1fr);gap:8px}.progress-sidebar{padding:10px 12px}.progress-sidebar h2{font-size:14px;margin-top:5px}.side-subtitle{font-size:10px}.timeline{padding:8px 0 4px}.timeline-placeholder,.timeline-item{min-width:145px;min-height:0;padding:7px}.timeline strong,.timeline-placeholder strong{font-size:10px}.timeline time{font-size:8px}.status-card{font-size:10px;padding:7px}.conversation-scroll{padding:5px 4px 175px}.chat-welcome{padding:11px;gap:9px}.chat-welcome p,.assistant-content>p,.user-message p{font-size:13px}.message-meta{font-size:9px}.chat-message{max-width:97%}.chat-product{gap:7px;padding:7px}.product-thumb{width:36px;height:36px}.product-thumb img{width:32px;height:32px}.product-info strong{font-size:11px}.product-info p{font-size:9px}.chat-product>b{font-size:10px}.cart-copy strong{font-size:11px}.cart-copy p{font-size:9px}.composer-dock{padding:19px 1px 0}.composer{padding:10px}.composer textarea{min-height:48px;font-size:14px}.composer-hint{font-size:8px}.voice-button{min-width:66px;height:34px;font-size:10px}.send-button{height:34px;font-size:10px}.composer-footnote{font-size:8px}.profile-backdrop{padding:60px 12px 12px;place-items:start center}.profile-dialog{padding:19px}.profile-dialog>p{font-size:12px}}
+
+/* Interactive shopping choices and demo-store profile. */
+.chat-layout{grid-template-columns:minmax(220px,260px) minmax(0,1fr);align-items:stretch}
+.agent-choice-panel,.variant-picker{margin:13px 0;padding:15px;border:1px solid #e5ebe0;border-radius:12px;background:#fbfcfa;animation:soft-appear .28s ease-out both}
+.agent-choice-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.agent-choice-heading>strong{font:500 10px 'DM Mono',monospace;color:#6e805f}
+.agent-choice-panel>p,.variant-picker>p{font-size:13px;line-height:1.55;color:#6c7567;margin:8px 0 12px}
+.agent-choice-panel .chat-products{max-height:390px;overflow:auto;padding:2px 4px 2px 0;scrollbar-width:thin}
+.agent-choice-panel .chat-product{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px}
+.agent-choice-panel .product-thumb{width:46px;height:46px}
+.agent-choice-panel .product-thumb img{width:42px;height:42px}
+.agent-choice-panel .product-info p{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.4}
+.product-choose-button,.variant-confirm-button{border:0;border-radius:7px;background:#445e43;color:#fff;padding:8px 12px;font:600 11px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.product-choose-button:hover,.variant-confirm-button:hover:not(:disabled){background:#354d35}
+.product-choose-button:disabled,.variant-confirm-button:disabled{opacity:.55;cursor:wait}
+.selected-product-summary{display:flex;align-items:center;gap:11px;padding:10px;border:1px solid #e8ece5;border-radius:9px;background:#fff}
+.selected-product-summary .product-thumb{width:48px;height:48px}
+.variant-group{border:0;border-top:1px solid #e8ece5;margin:13px 0 0;padding:12px 0 0}
+.variant-group legend{padding:0 8px 0 0;font:600 12px 'DM Sans',sans-serif;color:#525e4c;text-transform:capitalize}
+.variant-options{display:flex;flex-wrap:wrap;gap:8px}
+.variant-option{min-width:42px;min-height:38px;border:1px solid #dfe5db;border-radius:8px;background:#fff;color:#596252;padding:7px 12px;font:500 12px 'DM Sans',sans-serif;cursor:pointer}
+.variant-option:hover,.variant-option.active{border-color:#789462;background:#edf4e8;color:#435a3d;box-shadow:0 0 0 2px #edf4e8}
+.variant-confirm-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:15px;padding:11px}
+.demo-sites{margin:15px 0 13px}
+.demo-site-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.demo-site{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:58px;padding:9px;border:1px solid #e5e9e1;border-radius:8px;background:#fbfcfa;color:#535f4e;text-align:left;cursor:pointer}
+.demo-site:hover,.demo-site.active{border-color:#9db48a;background:#f2f7ee}
+.demo-site strong{font:600 11px 'DM Sans',sans-serif}
+.demo-site span{font:400 9px/1.35 'DM Sans',sans-serif;color:#899182}
+.profile-dialog{max-height:calc(100dvh - 36px);overflow-y:auto}
+@media(max-width:850px){.chat-layout{grid-template-columns:minmax(195px,30vw) minmax(0,1fr);gap:12px}}
+@media(max-width:650px){.chat-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(105px,23%) minmax(0,1fr)}.agent-choice-panel,.variant-picker{padding:11px}.agent-choice-panel .chat-product{grid-template-columns:40px minmax(0,1fr) auto;gap:7px}.agent-choice-panel .product-thumb{width:38px;height:38px}.agent-choice-panel .product-choose-button{grid-column:2/4;justify-self:end}.profile-backdrop{max-height:100dvh;overflow-y:auto}}

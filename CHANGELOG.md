@@ -4,6 +4,49 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T03:11:24+05:30 - Run backend outside sandbox with the intended API key
+
+- Changed: Restarted the backend in a visible, network-enabled PowerShell window after clearing inherited `OPENAI_API_KEY` and `OPEN_API_KEY` variables so `python-dotenv` loads the workspace backend `.env`. Left the frontend running in its visible PowerShell window. Documented the environment cleanup commands in README.
+- Why: The sandboxed backend could not reach OpenAI. Once launched outside the sandbox, its inherited environment still overrode the user's `.env` key, causing an authentication rejection.
+- Validation: Backend health returned `ok`; a harmless chat request returned HTTP 200; frontend returned HTTP 200. No key text was printed or logged.
+- Limitations: The key still needs to be valid and enabled for API use; environment variables set by a future launcher will take precedence again unless cleared.
+
+## 2026-10-11T03:06:07+05:30 - Keep checkout manual and make product choice explicit
+
+- Changed: Stopped Playwright at the verified cart instead of clicking checkout. Added an explicit product choice panel driven by the active task state so matching products and “Choose this item” remain available even if chat-history task state is briefly stale. Tightened the product matcher instruction to return only direct category matches and respect stated constraints. Updated checkout wording and records in `vocapilot/backend/app/{openai_service.py,playwright_shopping.py}`, `vocapilot/frontend/src/{App.tsx,services/api.ts}`, `README.md`, and `SUBMISSION.md`.
+- Why: The shopper reported weak product relevance and missing product selection, and asked to proceed to checkout manually after the cart is complete.
+- Validation: `npm run build` passed; backend `python -m compileall -q app` passed; `git diff --check` passed. Backend restarted visibly at `http://127.0.0.1:8000`. No new live storefront run was performed for this revision.
+- Limitations: Product relevance remains model-based and best-effort; the user must choose the exact listing. Discovery covers only products visible on the current store page.
+
+## 2026-10-11T02:56:38+05:30 - Verify selected cart item and open checkout for review
+
+- Changed: Prevented same-page fragment links from reloading SauceDemo inventory and losing the selected-product marker, so Playwright adds the chosen shirt instead of the first visible item. After cart verification, detect and open the store checkout step, report checkout status to the chat, and keep the headed review window open for up to 10 minutes. The workflow stops before entering checkout details or submitting an order. Updated checkout copy and corrected prior descriptions in README and submission notes. Files: `vocapilot/backend/app/{schemas.py,playwright_shopping.py}`, `vocapilot/frontend/src/{App.tsx,services/api.ts,types.ts}`, `README.md`, `SUBMISSION.md`.
+- Why: The user asked for an explicit cart-added confirmation followed by checkout, and reported that browser automation did not show the agent actions. The SauceDemo fragment navigation caused the selected product state to be lost, while the previous workflow never opened checkout.
+- Validation: Backend `compileall` and frontend production build passed; `git diff --check` passed. A live headed SauceDemo workflow found shirt choices, selected Sauce Labs Bolt T-Shirt, verified the cart, and reached `checkout-step-one.html`. No order was submitted.
+- Limitations: Checkout controls and confirmation are detected best-effort and vary by storefront. Live completion was confirmed on SauceDemo only; browser window visibility depends on the desktop environment.
+
+## 2026-10-11T02:21:35+05:30 - Add conversational product and variant selection
+
+- Changed: Added a multi-step shopping interaction that shows all relevant products from the current store page, lets the shopper choose a listing, reads available size/color options from its product page, then adds the selected item and verifies the cart. Added `/select` and `/options` task endpoints, held headed browser sessions while awaiting shopper input, cancellation and a five-minute expiry. Added four store presets (SauceDemo, Automation Exercise, nopCommerce, and Demoblaze) and documented frontend-to-backend store profile flow. Updated `vocapilot/backend/app/{schemas.py,task_store.py,playwright_shopping.py,openai_service.py,routes/tasks.py}`, `vocapilot/frontend/src/{App.tsx,services/api.ts,types.ts,style.css}`, `.env.example`, and README.
+- Why: Let shoppers browse live choices and select store-listed product variants conversationally, while keeping store credentials in the frontend profile instead of backend environment variables.
+- Validation: `python -m compileall -q app` and `npm run build` passed; `git diff --check` passed. No live-store interaction was run for this change.
+- Limitations: Discovery reads at most 60 products on the current page and does not paginate. Store selectors, login, variants, and cart confirmation are generic best-effort and may not work for every site. The OpenAI API key is still required in backend environment configuration.
+
+
+## 2026-10-11T01:58:55+05:30 - Repair Chromium launch and start clear shopping requests
+
+- Changed: Downloaded Playwright Chromium into ignored `.tools/playwright-browsers`; made the app automatically use that cache when present and documented setup. Strengthened chat routing instructions so explicit product requests with constraints start a search without optional follow-up questions. Updated `vocapilot/backend/app/playwright_shopping.py`, `vocapilot/backend/app/openai_service.py`, and `README.md`.
+- Why: The prior cached Chromium was missing `chrome.dll`, and a clear product request could be answered with an optional-preferences question instead of a shopping action.
+- Validation: After restarting the visible backend, the exact black T-shirt under $100 request returned HTTP 200 with a shopping intent. Workspace Chromium launched successfully and navigated to `about:blank`; backend health and frontend returned HTTP 200. `compileall` and `git diff --check` passed.
+- Limitations: The live selected-store login and cart flow was not rerun because store credentials are held in the frontend profile and the selected site was not available to the backend probe.
+## 2026-10-11T01:50:13+05:30 - Clarify OpenAI connection failures
+
+- Changed: Mapped OpenAI connection, rate-limit/quota, permission, and unavailable-model errors to separate sanitized API messages. Clarified that store profile credentials are separate from the OpenAI API key and documented outbound API access requirements. Updated `vocapilot/backend/app/routes/tasks.py` and `README.md`.
+- Why: A live chat probe reached the local API but failed with an OpenAI SDK `APIConnectionError`; store credentials cannot authenticate OpenAI requests.
+- Validation: Backend bytecode compilation and `git diff --check` passed. API health returned HTTP 200. Chat first reproduced an OpenAI connection failure in the restricted terminal; after restarting the backend in a network-enabled visible terminal, the same harmless chat probe returned HTTP 200 with an assistant response. Error messages do not include provider response text or credentials.
+- Limitations: Shopping sign-in credentials and the OpenAI API key serve different services; the key must have API access and the backend must reach `api.openai.com`.
+
+
 ## 2026-10-11T01:23:55+05:30 - Remove browser preview and generalize store setup
 
 - Changed: Removed the embedded live-browser preview, enlarged chat and progress text, and made the conversation follow new messages and task updates. Added an account-icon profile dialog for a store URL and optional email/username and password, held in frontend memory. Chat routing happens first without credentials; only a shopping task request sends profile values to the backend. The API keeps sign-in fields separate from model prompts and public task data, and clears them when a task finishes. Replaced the SauceDemo-only navigation, login, inventory, and cart selectors with public HTTPS validation and semantic page discovery. Model matching now returns relevant category alternatives. Removed screenshots from task output and updated the public-HTTPS URL validation fixture. Updated README and AI usage notes.
