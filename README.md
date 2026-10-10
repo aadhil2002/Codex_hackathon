@@ -1,56 +1,41 @@
-# DevDay Exchange Community Hackathon: Kochi
+# Northstar Market — Playwright shopping flow
 
-A repository template for participants at the 10–11 October 2026 hackathon. It contains event rules and documentation scaffolding; build your project from scratch at the event.
+Northstar Market is a self-contained sample storefront and Python Playwright automation for a complete shopping cart journey. The demo includes a product catalog, cart quantity updates/removal, required checkout fields, and an order confirmation. Orders are simulated locally; there is no payment processing or backend.
 
-**[Event and registration on Luma](https://luma.com/z10nz8gp)** · **[Event rules](RULES.md)** · **[Agent instructions](AGENTS.md)**
+## Setup
 
-## Event details
+Requirements: Python 3.9 or newer and pip. No API keys or environment variables are required.
 
-| Detail | Information |
-| --- | --- |
-| Venue | JAIN University, Kochi |
-| Location | [Open the venue map](https://maps.app.goo.gl/Eme7gR7NDXSNRANu5) |
-| Rooms | 2008 and 2009 |
-| Check-in | 10 October 2026, 6:00 PM IST |
-| Kick-off | 10 October 2026, 6:30 PM IST |
-| Wrap-up | 11 October 2026, by 10:00 AM IST |
-| Participation | Solo or a team of up to 4 participants |
-| Theme | Open — build anything you like |
+```powershell
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+```
 
-Keep your approved Luma QR code ready for entry, and bring your laptop and charger. Eligible checked-in participants will receive Codex credits and OpenAI API credits.
+## Start the demo
 
-## Use this template
+Start the website in one terminal:
 
-1. Select **Use this template → Create a new repository** on GitHub. Create your own project repository and clone it.
-2. Read [RULES.md](RULES.md) and [AGENTS.md](AGENTS.md) before building. Begin project implementation at the event.
-3. Fill in the project overview below as you build. Use any suitable language or framework, keeping the implementation simple.
-4. Record meaningful changes in [CHANGELOG.md](CHANGELOG.md) and your Codex usage in [AI_USAGE.md](AI_USAGE.md). Commit after completed milestones; aim for a meaningful checkpoint about every 30 minutes.
-5. Complete [SUBMISSION.md](SUBMISSION.md) with your code repository, short project description, and working demo. Follow submission instructions announced by the organizers.
+```powershell
+python server.py
+```
 
-This template has no application code or required technology stack. The documentation and commit cadence are repository workflow guidance; the event participation rules are in [RULES.md](RULES.md).
+Open `http://127.0.0.1:8000` to use the storefront manually. Keep the server running and run the browser automation in a second terminal:
 
-## Project overview — complete during the event
+```powershell
+python automate_cart.py
+```
 
-- **Project name:** TODO
-- **Short description:** TODO — what it does, who it helps, and why it matters.
-- **Team:** TODO — participant names and GitHub handles; maximum 4 members.
-- **Working demo:** TODO — link or local demo instructions.
-- **Technology stack:** TODO
+Use `python automate_cart.py --headed` to watch Chromium, or `--base-url http://127.0.0.1:8000` to target a different local instance.
 
-### Run the project
+## Demo walkthrough
 
-Replace these placeholders with commands that actually work for your project:
+The script opens the catalog, adds a mug and tote, opens the cart, changes the tote quantity, checks the total, fills the delivery form, submits the order, then checks the confirmation and emptied cart. The store uses browser local storage and a static product list. It is a local learning demo and does not save orders on a server or charge payments.
 
-1. Prerequisites and versions: TODO
-2. Dependency installation: TODO
-3. Environment setup: TODO — list required variable names and provide a sanitized `.env.example` if needed.
-4. Start the project: TODO
-5. Run checks or tests: TODO
+## Implementation notes
 
-### Current status
+- **Stack:** Python standard library HTTP server, HTML/CSS/JavaScript, Python Playwright.
+- **External APIs or datasets:** None.
+- **Browser:** Chromium (installed with Playwright).
+- **Checks:** The automation is provided as the end-to-end check; it has not been run in this session.
 
-- Working features: TODO
-- Known limitations: TODO
-- Libraries, APIs, and public datasets used: TODO — include source links and applicable attribution.
-
-See [AI_USAGE.md](AI_USAGE.md) for AI assistance and [CHANGELOG.md](CHANGELOG.md) for the development record.
+See [SUBMISSION.md](SUBMISSION.md) for the demo description and [AI_USAGE.md](AI_USAGE.md) and [CHANGELOG.md](CHANGELOG.md) for development records. Event requirements are in [RULES.md](RULES.md).

@@ -1,23 +1,15 @@
 # Change log
 
-Record each meaningful project change during the event, newest first. Update this file in the same commit as the change. Use a real timestamp with timezone, for example `YYYY-MM-DDTHH:MM:SS+05:30`.
+## 2026-10-10T23:44:38+05:30 — Add local shopping cart demo
 
-## Event build log
-
-No project implementation has been recorded yet. Replace this sentence with entries as you build:
-
-```text
-## <actual timestamp> — <short change title>
-
-- Changed: <feature or files changed>
-- Why: <reason for the change>
-- Validation: <commands or manual checks actually run, with results>
-- Limitations: <known issues or "None identified in these checks">
-```
+- Changed: Added the Northstar Market storefront (`index.html`), local server (`server.py`), Playwright browser flow (`automate_cart.py`), dependency declaration, and setup/submission notes.
+- Why: Provide a complete website flow that can be automated end to end without relying on an unavailable sample shopping site.
+- Validation: Reviewed source and documented commands; did not install dependencies or run the browser automation in this session.
+- Limitations: Checkout is simulated in the browser; no server-side order persistence or payment provider is included. Human review and an actual browser run remain outstanding.
 
 ## Template setup — 10 October 2026
 
 - Changed: Added the event README, rules, agent guide, change log, AI usage record, submission checklist, Git ignore rules, and pull request checklist.
 - Why: Give participants a consistent starting point for event rules, basic coding patterns, documented changes, and regular commits.
 - Validation: Checked local Markdown links, event detail consistency, required documents, and diff whitespace before publishing.
-- Limitations: Documentation scaffolding only; no participant project, application, or working demo is included. GitHub publication and template status are verified separately after creation.
+- Limitations: This records the initial documentation scaffold; the project demo was added later as documented above.
