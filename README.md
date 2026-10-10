@@ -25,8 +25,9 @@ The configured SauceDemo demo account defaults to `standard_user` / `secret_sauc
 
 ## Run
 
-Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`.
-Start the UI from `vocapilot/frontend` with `npm run dev` and open the Vite URL it prints.
+Run the API and UI in separate Windows PowerShell terminals. Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`. Start the UI from `vocapilot/frontend` with `npm run dev -- --host 127.0.0.1` and open the Vite URL it prints.
+
+The backend needs outbound access to `api.openai.com` and `www.saucedemo.com`. A restricted IDE or agent terminal may block that traffic even when the app starts; run the API from a normal network-enabled Windows terminal. The backend accepts `OPENAI_API_KEY` or `OPEN_API_KEY`. If chat reports that the key was rejected, set a valid key in `vocapilot/backend/.env` and restart the API. Existing shell environment variables take precedence over `.env`; clear a stale `OPENAI_API_KEY` from the backend shell if it shadows the local value. OpenAI error details are sanitized so provider responses cannot expose key text to the browser.
 
 Chat naturally, for example “I need a lightweight backpack for commuting under $50.” VocaPilot can ask a follow-up or start a shopping task; when it has a match, it checks the real inventory, adds one item, and verifies the rendered cart. Use the mic to record a request; the transcript appears in the composer for review before sending. Use Listen on an assistant reply for generated voice playback. The interface streams task progress in the scrollable sidebar and displays browser screenshots from the actual session. The browser panel is a screenshot preview rather than an interactive browser. Checkout is never opened.
 

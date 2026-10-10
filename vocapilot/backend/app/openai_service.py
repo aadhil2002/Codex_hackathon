@@ -19,7 +19,7 @@ class OpenAIConfigurationError(RuntimeError):
 
 @lru_cache(maxsize=1)
 def _client() -> AsyncOpenAI:
-    key = os.getenv("OPENAI_API_KEY")
+    key = os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_API_KEY")
     if not key:
         raise OpenAIConfigurationError("Add OPENAI_API_KEY to the backend environment to enable AI chat and voice.")
     return AsyncOpenAI(api_key=key)

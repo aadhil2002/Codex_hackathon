@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T00:24:00+05:30 - Diagnose OpenAI chat failures and expose local servers
+
+- Changed: Mapped rejected OpenAI credentials to a clear 503 response and sanitized other provider failures so raw upstream text cannot reach the browser. Added the documented `OPEN_API_KEY` fallback. Clarified that the backend needs outbound network access and should run in a normal Windows terminal when the IDE terminal is network-restricted. Opened visible backend and frontend PowerShell terminals.
+- Why: The active backend returned 502 because a stale inherited `OPENAI_API_KEY` took precedence over the available `OPEN_API_KEY`; raw upstream error text could also reach the browser. The project documented the alias but the client did not read it.
+- Validation: Backend suite passed (13 passed, 1 opt-in live test skipped); frontend production build passed. After clearing the stale inherited variable and adding alias support, a harmless live chat probe returned HTTP 200. API health and frontend returned HTTP 200.
+- Limitations: Live SauceDemo shopping remains unverified. The visible backend terminal needs a restart if its key configuration changes.
+
 ## 2026-10-11T00:08:44+05:30 — Connect conversational text and voice models
 
 - Changed: Replaced regex product intent parsing with OpenAI Responses API chat routing, short conversation history, natural-language follow-ups, and model-based matching against live observed store products. Added transcription, voice playback, configurable model names, and support for both `OPENAI_API_KEY` and the user's `OPEN_API_KEY` spelling. Replaced the UI's single fixed request with persistent conversation bubbles. Updated setup and submission notes.

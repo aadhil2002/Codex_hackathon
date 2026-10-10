@@ -2,7 +2,7 @@ import asyncio
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from openai import OpenAIError
+from openai import AuthenticationError, OpenAIError
 
 from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
 from app.playwright_shopping import run_shopping_task
@@ -10,6 +10,18 @@ from app.schemas import ChatRequest, ChatResponse, SpeechRequest, TaskCreate, Ta
 from app.task_store import store
 
 router = APIRouter()
+
+
+def _openai_http_error(operation: str, exc: OpenAIError) -> HTTPException:
+    if isinstance(exc, AuthenticationError):
+        return HTTPException(
+            status_code=503,
+            detail="OpenAI rejected the configured API key. Set a valid OPENAI_API_KEY in vocapilot/backend/.env and restart the backend.",
+        )
+    return HTTPException(
+        status_code=502,
+        detail=f"OpenAI {operation} failed. Check backend connectivity, model access, and account limits.",
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -21,7 +33,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except OpenAIConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=f"OpenAI chat request failed: {exc}") from exc
+        raise _openai_http_error("chat request", exc) from exc
 
     if turn["action"] != "shop":
         return ChatResponse(message=turn["message"])
@@ -56,7 +68,7 @@ async def transcribe(file: UploadFile = File(...)) -> TranscriptionResponse:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=f"OpenAI transcription failed: {exc}") from exc
+        raise _openai_http_error("transcription", exc) from exc
     return TranscriptionResponse(text=text)
 
 
@@ -67,7 +79,7 @@ async def speech(request: SpeechRequest) -> Response:
     except OpenAIConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=f"OpenAI speech request failed: {exc}") from exc
+        raise _openai_http_error("speech generation", exc) from exc
     return Response(content=audio, media_type="audio/mpeg")
 
 
@@ -81,7 +93,7 @@ async def create_task(request: TaskCreate) -> TaskView:
         except OpenAIConfigurationError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except OpenAIError as exc:
-            raise HTTPException(status_code=502, detail=f"OpenAI chat request failed: {exc}") from exc
+            raise _openai_http_error("chat request", exc) from exc
         product_query = (turn.get("product_query") or "").strip()
         if turn["action"] != "shop" or not product_query:
             raise HTTPException(status_code=422, detail=turn["message"])

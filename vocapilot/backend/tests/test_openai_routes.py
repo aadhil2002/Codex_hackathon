@@ -1,3 +1,5 @@
+import httpx
+from openai import AuthenticationError
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -65,3 +67,20 @@ def test_chat_explains_missing_api_key(monkeypatch):
         response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Hello"}]})
     assert response.status_code == 503
     assert "OPENAI_API_KEY" in response.json()["detail"]
+
+
+def test_chat_sanitizes_rejected_api_key_error(monkeypatch):
+    async def reject_key(messages):
+        response = httpx.Response(
+            401,
+            request=httpx.Request("POST", "https://api.openai.com/v1/responses"),
+            json={"error": {"message": "Incorrect API key provided: sk-private-test"}},
+        )
+        raise AuthenticationError("Incorrect API key provided: sk-private-test", response=response, body=response.json())
+
+    monkeypatch.setattr("app.routes.tasks.route_chat", reject_key)
+    with TestClient(app) as client:
+        response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Hello"}]})
+    assert response.status_code == 503
+    assert "valid OPENAI_API_KEY" in response.json()["detail"]
+    assert "sk-private-test" not in response.text

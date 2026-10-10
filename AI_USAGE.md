@@ -4,6 +4,8 @@ Use this file to record actual Codex assistance. Summaries are sufficient; omit 
 
 ## Event build log
 
+| 2026-10-11T00:24:00+05:30 | Codex | Diagnose chat 502 and open local terminals | Inspected backend and OpenAI error handling; mapped rejected keys to actionable sanitized 503s, removed raw upstream error text from API responses, implemented the documented `OPEN_API_KEY` fallback, clarified network-enabled startup guidance, and opened visible backend/frontend PowerShell terminals. | Pending human review | Backend tests: 13 passed, 1 opt-in live test skipped. Frontend production build passed. After clearing a stale inherited variable, a generic chat probe returned HTTP 200; no key or credential value was recorded. |
+
 | Date and time with timezone | Tool / model, if known | Task | Assistance and affected files | Human review / corrections | Validation and result |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-11T00:08:44+05:30 | Codex | Connect VocaPilot to OpenAI text and voice models | Replaced regex intent parsing with Responses API conversation routing and inventory matching; added audio transcription and generated speech endpoints, client-side conversation history and Listen control, API-key/model configuration, route tests, and setup/submission documentation across `vocapilot/backend` and `vocapilot/frontend`. | Pending human review; user will provide API key. | Frontend build passed; backend suite: 11 passed, 1 opt-in live test skipped. Model endpoints were tested with mocks; no live OpenAI key was configured. |
