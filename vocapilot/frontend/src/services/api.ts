@@ -1,0 +1,29 @@
+import type { Task } from '../types'
+
+const API = 'http://127.0.0.1:8000/api'
+
+export async function createTask(input_text: string): Promise<Task> {
+  const response = await fetch(`${API}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input_text, source: 'text', target: 'saucedemo' }) })
+  if (!response.ok) throw new Error((await response.json()).detail ?? 'Could not start the shopping task.')
+  return response.json()
+}
+
+export async function getTask(id: string): Promise<Task> {
+  const response = await fetch(`${API}/tasks/${id}`)
+  if (!response.ok) throw new Error('Could not read task status.')
+  return response.json()
+}
+
+export async function cancelTask(id: string): Promise<void> {
+  const response = await fetch(`${API}/tasks/${id}/cancel`, { method: 'POST' })
+  if (!response.ok) throw new Error('Could not cancel this task.')
+}
+
+export function subscribeToTask(id: string, onEvent: () => void): EventSource {
+  const source = new EventSource(`${API}/tasks/${id}/events`)
+  source.onmessage = onEvent
+  for (const type of ['task_created', 'task_started', 'intent_parsed', 'browser_navigated', 'products_observed', 'products_compared', 'product_selected', 'cart_updated', 'screenshot_updated', 'verification_started', 'verification_completed', 'task_completed', 'task_failed', 'task_cancelled', 'error']) {
+    source.addEventListener(type, onEvent)
+  }
+  return source
+}

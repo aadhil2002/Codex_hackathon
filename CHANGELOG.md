@@ -1,23 +1,12 @@
 # Change log
 
-Record each meaningful project change during the event, newest first. Update this file in the same commit as the change. Use a real timestamp with timezone, for example `YYYY-MM-DDTHH:MM:SS+05:30`.
+Record each meaningful project change newest first, with an actual timestamp and timezone.
 
 ## Event build log
 
-No project implementation has been recorded yet. Replace this sentence with entries as you build:
+## 2026-10-10T22:48:04+05:30 — Add VocaPilot deterministic shopping baseline
 
-```text
-## <actual timestamp> — <short change title>
-
-- Changed: <feature or files changed>
-- Why: <reason for the change>
-- Validation: <commands or manual checks actually run, with results>
-- Limitations: <known issues or "None identified in these checks">
-```
-
-## Template setup — 10 October 2026
-
-- Changed: Added the event README, rules, agent guide, change log, AI usage record, submission checklist, Git ignore rules, and pull request checklist.
-- Why: Give participants a consistent starting point for event rules, basic coding patterns, documented changes, and regular commits.
-- Validation: Checked local Markdown links, event detail consistency, required documents, and diff whitespace before publishing.
-- Limitations: Documentation scaffolding only; no participant project, application, or working demo is included. GitHub publication and template status are verified separately after creation.
+- Changed: Added a React + TypeScript + Vite shopping interface; FastAPI task endpoints, in-memory task state and SSE; fixed SauceDemo origin allowlist; actual inventory and cart DOM extraction; explicit cart verification; screenshots; cancellation and a 90-second task limit; starter unit and opt-in live-site tests. Updated README, ignore rules, and submission description.
+- Why: Establish an end-to-end deterministic implementation path that does not require a model API key and never proceeds to checkout.
+- Validation: Inspected clean git status before editing; confirmed Node 24.14.0 and npm 11.9.0. `npm install` completed with 0 reported vulnerabilities and `npm run build` passed. The first frontend build exposed three TypeScript issues; fixed them and rebuilt successfully. `git diff --check` reported no whitespace errors. Python and the `py` launcher are unavailable, so pytest and backend execution could not run. Inspected the current official OpenAI Computer Use guide and sample app for the later integration phase.
+- Limitations: Live SauceDemo login and browser flow are not verified. Voice recording has no upload/transcription endpoint yet. OpenAI Computer Use, persistent storage, and an executed browser test remain incomplete. The app needs Python 3.11 and Chromium.

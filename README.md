@@ -1,56 +1,48 @@
-# DevDay Exchange Community Hackathon: Kochi
+# VocaPilot Shopping
 
-A repository template for participants at the 10–11 October 2026 hackathon. It contains event rules and documentation scaffolding; build your project from scratch at the event.
+A voice-friendly shopping assistant prototype that turns a typed request into a verified cart update on the SauceDemo test store. It reads product names and displayed prices from the real page and stops before checkout.
 
-**[Event and registration on Luma](https://luma.com/z10nz8gp)** · **[Event rules](RULES.md)** · **[Agent instructions](AGENTS.md)**
+## Current baseline
 
-## Event details
+Implemented: deterministic SauceDemo browser workflow, FastAPI task API with task state and SSE events, React request/results/timeline/cart interface, screenshot preview, and cancellation. Text requests are supported. Voice recording, transcription, OpenAI Computer Use, and expanded test coverage remain incomplete.
 
-| Detail | Information |
-| --- | --- |
-| Venue | JAIN University, Kochi |
-| Location | [Open the venue map](https://maps.app.goo.gl/Eme7gR7NDXSNRANu5) |
-| Rooms | 2008 and 2009 |
-| Check-in | 10 October 2026, 6:00 PM IST |
-| Kick-off | 10 October 2026, 6:30 PM IST |
-| Wrap-up | 11 October 2026, by 10:00 AM IST |
-| Participation | Solo or a team of up to 4 participants |
-| Theme | Open — build anything you like |
+## Prerequisites
 
-Keep your approved Luma QR code ready for entry, and bring your laptop and charger. Eligible checked-in participants will receive Codex credits and OpenAI API credits.
+- Python 3.11
+- Node.js 20.19+ or 22.12+ and npm
+- Chromium installed by Playwright
+- Network access to `https://www.saucedemo.com/` for the live demo
 
-## Use this template
+The configured SauceDemo demo account defaults to `standard_user` / `secret_sauce`; override with environment variables if the public test site changes. These are public test-site credentials, not user credentials.
 
-1. Select **Use this template → Create a new repository** on GitHub. Create your own project repository and clone it.
-2. Read [RULES.md](RULES.md) and [AGENTS.md](AGENTS.md) before building. Begin project implementation at the event.
-3. Fill in the project overview below as you build. Use any suitable language or framework, keeping the implementation simple.
-4. Record meaningful changes in [CHANGELOG.md](CHANGELOG.md) and your Codex usage in [AI_USAGE.md](AI_USAGE.md). Commit after completed milestones; aim for a meaningful checkpoint about every 30 minutes.
-5. Complete [SUBMISSION.md](SUBMISSION.md) with your code repository, short project description, and working demo. Follow submission instructions announced by the organizers.
+## Setup
 
-This template has no application code or required technology stack. The documentation and commit cadence are repository workflow guidance; the event participation rules are in [RULES.md](RULES.md).
+1. Create and activate a virtual environment in `vocapilot/backend`.
+2. Install backend dependencies: `pip install -r requirements.txt`.
+3. Install Chromium: `playwright install chromium`.
+4. Copy `vocapilot/backend/.env.example` to `.env` if overrides are needed. Do not put real credentials in this file.
+5. In `vocapilot/frontend`, run `npm install`.
 
-## Project overview — complete during the event
+## Run
 
-- **Project name:** TODO
-- **Short description:** TODO — what it does, who it helps, and why it matters.
-- **Team:** TODO — participant names and GitHub handles; maximum 4 members.
-- **Working demo:** TODO — link or local demo instructions.
-- **Technology stack:** TODO
+Start the API from `vocapilot/backend` with `uvicorn app.main:app --reload --port 8000`.
+Start the UI from `vocapilot/frontend` with `npm run dev` and open the Vite URL it prints.
 
-### Run the project
+Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The screenshot preview is an image of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
 
-Replace these placeholders with commands that actually work for your project:
+## Checks
 
-1. Prerequisites and versions: TODO
-2. Dependency installation: TODO
-3. Environment setup: TODO — list required variable names and provide a sanitized `.env.example` if needed.
-4. Start the project: TODO
-5. Run checks or tests: TODO
+- Backend tests: `pytest` (pending; Python is not installed in this implementation environment).
+- Frontend: `npm run build` (pending).
+- Browser workflow: `pytest` live SauceDemo test (requires network and Chromium; pending).
 
-### Current status
+## Sources
 
-- Working features: TODO
-- Known limitations: TODO
-- Libraries, APIs, and public datasets used: TODO — include source links and applicable attribution.
+- Playwright: https://playwright.dev/python/
+- FastAPI: https://fastapi.tiangolo.com/
+- React + Vite: https://vite.dev/guide/
+- Test store: https://www.saucedemo.com/
+- OpenAI Computer Use guide (planned integration): https://developers.openai.com/api/docs/guides/tools-computer-use
+- OpenAI CUA sample app (planned integration reference): https://github.com/openai/openai-cua-sample-app
 
-See [AI_USAGE.md](AI_USAGE.md) for AI assistance and [CHANGELOG.md](CHANGELOG.md) for the development record.
+See [RULES.md](RULES.md), [AI_USAGE.md](AI_USAGE.md), [CHANGELOG.md](CHANGELOG.md), and [SUBMISSION.md](SUBMISSION.md) for event requirements and project records.
