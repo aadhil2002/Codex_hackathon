@@ -33,7 +33,7 @@ export default function App() {
       if (terminal.has(next.status)) {
         setBusy(false)
         const resultSummary = next.result?.verification_status === 'verified'
-          ? `Verified in the store: ${next.result.quantity ?? 1} ${next.result.selected_product?.name ?? 'item'} at ${next.result.displayed_price ?? 'the displayed price'}.`
+          ? `Successfully added to your shopping cart: ${next.result.quantity ?? 1} ${next.result.selected_product?.name ?? 'item'} at ${next.result.displayed_price ?? 'the displayed price'}. The cart contents were verified.`
           : next.error ? `The store check ended without verification: ${next.error}` : ''
         if (resultSummary) setMessages(previous => previous.map(message => message.taskId === id && !message.content.includes(resultSummary) ? { ...message, content: `${message.content}\n\n${resultSummary}` } : message))
       }

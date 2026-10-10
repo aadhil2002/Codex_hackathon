@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T00:36:51+05:30 - Accept short chat turns and restore browser preview
+
+- Changed: Allowed one-character shopping turns through task creation; report cart success only after rendered-cart verification; added workflow-stage failure messages; documented running Uvicorn without reload/workers on Windows so Playwright can launch Chromium.
+- Why: The pasted traceback showed `TaskCreate` rejecting a valid one-character chat turn and crashing with an uncaught Pydantic error. On Windows, Uvicorn reload mode selected a selector loop that caused Playwright browser startup to fail before the first screenshot.
+- Validation: Backend suite: 14 passed, 1 opt-in test skipped. Frontend production build passed. A live SauceDemo task completed with the Sauce Labs Backpack verified in the cart and returned a 46,615-character screenshot data URI for the preview.
+- Limitations: The preview is a sequence of browser screenshots at workflow steps, not continuous video. Checkout was not opened.
+
 ## 2026-10-11T00:24:00+05:30 - Diagnose OpenAI chat failures and expose local servers
 
 - Changed: Mapped rejected OpenAI credentials to a clear 503 response and sanitized other provider failures so raw upstream text cannot reach the browser. Added the documented `OPEN_API_KEY` fallback. Clarified that the backend needs outbound network access and should run in a normal Windows terminal when the IDE terminal is network-restricted. Opened visible backend and frontend PowerShell terminals.

@@ -1,8 +1,10 @@
 import asyncio
 import base64
 import os
+import re
 from urllib.parse import urlparse
 
+from openai import AuthenticationError, OpenAIError
 from playwright.async_api import async_playwright
 
 from app.openai_service import choose_product
@@ -44,6 +46,7 @@ async def _run_shopping_task(task_id: str) -> None:
     task = store.tasks[task_id]
     action_count = 0
     browser = None
+    workflow_stage = "starting the browser workflow"
     try:
         task.status = "running"
         store.emit(task_id, "task_started", "Starting the SauceDemo shopping workflow.")
@@ -58,20 +61,24 @@ async def _run_shopping_task(task_id: str) -> None:
         if not allowed_store_url(target):
             raise ValueError("SAUCEDEMO_BASE_URL must use https://www.saucedemo.com.")
         async with async_playwright() as playwright:
+            workflow_stage = "launching Chromium"
             browser = await playwright.chromium.launch(headless=True)
             context = await browser.new_context(viewport={"width": 1365, "height": 900})
             page = await context.new_page()
             page.set_default_timeout(8000)
+            workflow_stage = "opening SauceDemo"
             await page.goto(target, wait_until="domcontentloaded", timeout=25000)
             action_count += 1
             if not allowed_store_url(page.url):
                 raise ValueError("SauceDemo redirected outside the approved origin; stopped.")
             store.emit(task_id, "browser_navigated", "Opened the approved SauceDemo store.", {"url": page.url})
+            workflow_stage = "capturing the store preview"
             await _capture(task_id, page)
             _check_cancel(task_id)
 
             username = os.getenv("SAUCEDEMO_USERNAME", "standard_user")
             password = os.getenv("SAUCEDEMO_PASSWORD", "secret_sauce")
+            workflow_stage = "logging in to the demo store"
             await page.get_by_placeholder("Username").fill(username)
             await page.get_by_placeholder("Password").fill(password)
             await page.get_by_role("button", name="Login").click()
@@ -79,6 +86,7 @@ async def _run_shopping_task(task_id: str) -> None:
             await page.wait_for_url("**/inventory.html", timeout=15000)
             if not allowed_store_url(page.url):
                 raise ValueError("The store redirected outside the approved origin; stopped.")
+            workflow_stage = "capturing the inventory preview"
             await _capture(task_id, page)
             _check_cancel(task_id)
 
@@ -112,6 +120,7 @@ async def _run_shopping_task(task_id: str) -> None:
                 task.error = "No displayed product is within the requested budget."
                 store.emit(task_id, "error", task.error)
                 return
+            workflow_stage = "matching a product"
             selected_index = await choose_product(
                 f"{task.input_text}\nProduct intent: {intent['requested_product']}",
                 [{"name": p.name, "description": p.description, "displayed_price": p.displayed_price,
@@ -129,6 +138,7 @@ async def _run_shopping_task(task_id: str) -> None:
                        {"product": selected.model_dump(), "reason": "Best model match among the visible products within budget."})
             _check_cancel(task_id)
 
+            workflow_stage = "adding the selected product to the cart"
             card = product_cards.filter(has=page.get_by_text(selected.name, exact=True)).first
             await card.get_by_role("button", name="Add to cart").click()
             action_count += 1
@@ -140,6 +150,7 @@ async def _run_shopping_task(task_id: str) -> None:
             store.emit(task_id, "cart_updated", "Added one item; checking the rendered cart.", {"badge": cart_count_text})
             _check_cancel(task_id)
             store.emit(task_id, "verification_started", "Opening the cart to verify its actual contents.")
+            workflow_stage = "opening and verifying the cart"
             await cart_link.click()
             action_count += 1
             await page.wait_for_url("**/cart.html", timeout=10000)
@@ -161,7 +172,7 @@ async def _run_shopping_task(task_id: str) -> None:
             if task.result.verification_status == "verified":
                 task.status = "completed"
                 store.emit(task_id, "verification_completed", "Cart item, quantity, price, and badge match.", {"evidence": task.result.evidence})
-                store.emit(task_id, "task_completed", "Shopping task completed. Checkout was not opened.",
+                store.emit(task_id, "task_completed", f"Successfully added {selected.name} to the shopping cart and verified it. Checkout was not opened.",
                            {"product": selected.name, "quantity": 1, "price": task.result.displayed_price})
             else:
                 task.status = "inconclusive"
@@ -180,7 +191,16 @@ async def _run_shopping_task(task_id: str) -> None:
             await browser.close()
     except Exception as exc:
         task.status = "failed"
-        task.error = str(exc)
+        if isinstance(exc, AuthenticationError):
+            task.error = "OpenAI rejected the configured API key during product matching. Check OPENAI_API_KEY or OPEN_API_KEY and restart the backend."
+        elif isinstance(exc, OpenAIError):
+            task.error = "OpenAI product matching failed. Check backend connectivity, model access, and account limits."
+        else:
+            detail = str(exc).strip()
+            if re.search(r"(?i)api[_ -]?key|bearer|token|sk-[a-z0-9_-]{8,}", detail):
+                task.error = f"The shopping workflow failed while {workflow_stage} ({type(exc).__name__})."
+            else:
+                task.error = detail or f"The shopping workflow failed while {workflow_stage} ({type(exc).__name__})."
         store.emit(task_id, "task_failed", task.error)
         if browser:
             await browser.close()

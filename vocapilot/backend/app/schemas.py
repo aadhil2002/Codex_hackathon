@@ -9,7 +9,7 @@ TaskStatus = Literal["queued", "running", "completed", "failed", "cancelled", "i
 
 
 class TaskCreate(BaseModel):
-    input_text: str = Field(min_length=4, max_length=1000)
+    input_text: str = Field(min_length=1, max_length=1000)
     source: Literal["text", "voice"] = "text"
     target: Literal["saucedemo"] = "saucedemo"
     intent: dict | None = None

@@ -25,7 +25,7 @@ The configured SauceDemo demo account defaults to `standard_user` / `secret_sauc
 
 ## Run
 
-Run the API and UI in separate Windows PowerShell terminals. Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`. Start the UI from `vocapilot/frontend` with `npm run dev -- --host 127.0.0.1` and open the Vite URL it prints.
+Run the API and UI in separate Windows PowerShell terminals. Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`. On Windows, do not use Uvicorn `--reload` or multiple workers: Playwright needs a Proactor event loop to launch Chromium, and Uvicorn switches to a selector loop when subprocess mode is enabled. Restart the API manually after backend code changes. Start the UI from `vocapilot/frontend` with `npm run dev -- --host 127.0.0.1` and open the Vite URL it prints.
 
 The backend needs outbound access to `api.openai.com` and `www.saucedemo.com`. A restricted IDE or agent terminal may block that traffic even when the app starts; run the API from a normal network-enabled Windows terminal. The backend accepts `OPENAI_API_KEY` or `OPEN_API_KEY`. If chat reports that the key was rejected, set a valid key in `vocapilot/backend/.env` and restart the API. Existing shell environment variables take precedence over `.env`; clear a stale `OPENAI_API_KEY` from the backend shell if it shadows the local value. OpenAI error details are sanitized so provider responses cannot expose key text to the browser.
 

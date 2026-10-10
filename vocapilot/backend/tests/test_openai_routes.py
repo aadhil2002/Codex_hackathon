@@ -35,6 +35,22 @@ def test_chat_routes_a_shopping_request_to_saucedemo(monkeypatch):
     assert data["task"]["intent"]["max_price"] == 50
 
 
+def test_chat_accepts_single_character_shop_request(monkeypatch):
+    async def fake_route_chat(messages):
+        assert messages[-1]["content"] == "x"
+        return {"message": "I’ll check that for you.", "action": "shop", "product_query": "backpack", "max_price": None}
+
+    async def fake_run_task(task_id):
+        return None
+
+    monkeypatch.setattr("app.routes.tasks.route_chat", fake_route_chat)
+    monkeypatch.setattr("app.routes.tasks.run_shopping_task", fake_run_task)
+    with TestClient(app) as client:
+        response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "x"}]})
+    assert response.status_code == 200
+    assert response.json()["task"]["input_text"] == "x"
+
+
 def test_voice_transcription_returns_text(monkeypatch):
     async def fake_transcribe(filename, content_type, audio):
         assert audio == b"voice sample"
