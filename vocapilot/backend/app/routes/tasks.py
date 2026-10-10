@@ -1,19 +1,97 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
+from openai import OpenAIError
 
+from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
 from app.playwright_shopping import run_shopping_task
-from app.schemas import TaskCreate, TaskView
+from app.schemas import ChatRequest, ChatResponse, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
 from app.task_store import store
 
 router = APIRouter()
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest) -> ChatResponse:
+    if request.messages[-1].role != "user":
+        raise HTTPException(status_code=422, detail="The latest conversation message must be from you.")
+    try:
+        turn = await route_chat([message.model_dump() for message in request.messages[-12:]])
+    except OpenAIConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=f"OpenAI chat request failed: {exc}") from exc
+
+    if turn["action"] != "shop":
+        return ChatResponse(message=turn["message"])
+    product_query = (turn.get("product_query") or "").strip()
+    if not product_query:
+        return ChatResponse(message="What kind of product would you like me to look for?")
+
+    user_text = request.messages[-1].content
+    intent = {
+        "request": user_text,
+        "requested_product": product_query,
+        "max_price": turn.get("max_price"),
+        "quantity": 1,
+        "checkout_allowed": False,
+    }
+    task = store.create(TaskCreate(input_text=user_text, intent=intent))
+    asyncio.create_task(run_shopping_task(task.task_id))
+    return ChatResponse(message=turn["message"], task=task)
+
+
+@router.post("/transcribe", response_model=TranscriptionResponse)
+async def transcribe(file: UploadFile = File(...)) -> TranscriptionResponse:
+    audio = await file.read(20 * 1024 * 1024 + 1)
+    if len(audio) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Keep voice recordings under 20 MB.")
+    if not audio:
+        raise HTTPException(status_code=422, detail="The voice recording was empty.")
+    try:
+        text = await transcribe_audio(file.filename or "recording.webm", file.content_type or "audio/webm", audio)
+    except OpenAIConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=f"OpenAI transcription failed: {exc}") from exc
+    return TranscriptionResponse(text=text)
+
+
+@router.post("/speech")
+async def speech(request: SpeechRequest) -> Response:
+    try:
+        audio = await synthesize_speech(request.text)
+    except OpenAIConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=f"OpenAI speech request failed: {exc}") from exc
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 @router.post("/tasks", response_model=TaskView, status_code=202)
 async def create_task(request: TaskCreate) -> TaskView:
     if request.target != "saucedemo":
         raise HTTPException(status_code=422, detail="Only the configured SauceDemo target is available.")
+    if request.intent is None:
+        try:
+            turn = await route_chat([{"role": "user", "content": request.input_text}])
+        except OpenAIConfigurationError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except OpenAIError as exc:
+            raise HTTPException(status_code=502, detail=f"OpenAI chat request failed: {exc}") from exc
+        product_query = (turn.get("product_query") or "").strip()
+        if turn["action"] != "shop" or not product_query:
+            raise HTTPException(status_code=422, detail=turn["message"])
+        request.intent = {
+            "request": request.input_text,
+            "requested_product": product_query,
+            "max_price": turn.get("max_price"),
+            "quantity": 1,
+            "checkout_allowed": False,
+        }
     task = store.create(request)
     asyncio.create_task(run_shopping_task(task.task_id))
     return task

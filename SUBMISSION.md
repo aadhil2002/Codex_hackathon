@@ -3,7 +3,7 @@
 ## Project
 
 - **Project name:** VocaPilot Shopping
-- **Short description:** A voice-friendly shopping assistant prototype that reads actual SauceDemo inventory and prices, compares matching products, adds one item, and verifies the rendered cart without checking out.
+- **Short description:** An OpenAI-powered shopping chatbot that understands natural-language requests, can speak and listen, matches a request against actual SauceDemo inventory, then adds and verifies one cart item without checking out.
 - **Code repository URL:** TODO
 - **Final submitted implementation commit SHA:** TODO
 - **Working demo URL or local demo steps:** Local setup and run steps are in [README.md](README.md); demo not yet verified.
@@ -19,12 +19,12 @@
 
 - **Prerequisites and versions:** Python 3.11; Node.js 20.19+ or 22.12+; Chromium via Playwright.
 - **Install command:** `python -m pip install -r vocapilot/backend/requirements.txt`, `python -m playwright install chromium`, and `npm install` from `vocapilot/frontend`.
-- **Required environment variable names:** `SAUCEDEMO_USERNAME`, `SAUCEDEMO_PASSWORD`, `SAUCEDEMO_BASE_URL` (optional overrides; see backend `.env.example`).
+- **Required environment variable names:** `OPENAI_API_KEY` (or supported alias `OPEN_API_KEY`); optional model overrides `OPENAI_TEXT_MODEL`, `OPENAI_AUDIO_MODEL`, and `OPENAI_TTS_MODEL`. SauceDemo credentials and origin have safe public demo defaults; see backend `.env.example`.
 - **Start command:** `python -m uvicorn app.main:app --reload --port 8000` from `vocapilot/backend`; `npm run dev` from `vocapilot/frontend`.
-- **Demo walkthrough:** Enter the prepared backpack request, start the task, observe the actual SauceDemo screenshot and product observations, and review the verified cart summary. The flow does not check out.
-- **Checks performed and results:** Backend pytest suite: 9 passed, 1 opt-in live-store test skipped. Frontend production build passed. API health and frontend returned HTTP 200. Live SauceDemo test not yet run.
-- **Known limitations or incomplete features:** Optional OpenAI Computer Use and speech transcription are not implemented. Voice recording currently reports that transcription is unavailable. Live store access and cart automation have not yet been verified in this environment.
-- **Libraries, APIs, and public datasets used:** React, Vite, FastAPI, Playwright, Chromium, and the SauceDemo public testing website. Optional OpenAI Computer Use guide: https://developers.openai.com/api/docs/guides/tools-computer-use
+- **Demo walkthrough:** Add the OpenAI API key to the backend `.env`, start both services, then chat naturally (for example, ask for a lightweight commuter backpack under $50). VocaPilot can ask a follow-up, transcribe mic input for review, match actual inventory, verify the cart, and read replies aloud. Checkout is not opened.
+- **Checks performed and results:** Backend pytest suite: 11 passed, 1 opt-in live-store test skipped; OpenAI endpoint tests use mocks. Frontend production build passed. Live OpenAI calls and the live SauceDemo workflow have not been run because the API key has not been configured.
+- **Known limitations or incomplete features:** OpenAI Computer Use is not implemented; browser access uses the bounded SauceDemo Playwright workflow. Voice input is recorded, then transcribed (not a realtime voice stream), and generated speech is played from an explicit Listen control. Live store access and model behavior require the user's API key and have not yet been verified.
+- **Libraries, APIs, and public datasets used:** React, Vite, FastAPI, Playwright, Chromium, OpenAI Python SDK / Responses API / audio transcription / text-to-speech, and the SauceDemo public testing website. OpenAI docs: https://developers.openai.com/api/docs/guides/text, https://developers.openai.com/api/docs/guides/speech-to-text, https://developers.openai.com/api/docs/guides/text-to-speech
 - **AI usage record:** [AI_USAGE.md](AI_USAGE.md)
 - **Development change log:** [CHANGELOG.md](CHANGELOG.md)
 

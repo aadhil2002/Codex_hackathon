@@ -2,10 +2,32 @@ import type { Task } from '../types'
 
 const API = 'http://127.0.0.1:8000/api'
 
-export async function createTask(input_text: string): Promise<Task> {
-  const response = await fetch(`${API}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input_text, source: 'text', target: 'saucedemo' }) })
-  if (!response.ok) throw new Error((await response.json()).detail ?? 'Could not start the shopping task.')
-  return response.json()
+export type ChatLine = { role: 'user' | 'assistant'; content: string }
+export type ChatReply = { message: string; task?: Task | null }
+
+export async function sendChat(messages: ChatLine[]): Promise<ChatReply> {
+  const response = await fetch(`${API}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages }) })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail ?? 'Could not reach the shopping assistant.')
+  return data
+}
+
+export async function transcribeAudio(audio: Blob): Promise<string> {
+  const form = new FormData()
+  form.append('file', audio, 'voice-request.webm')
+  const response = await fetch(`${API}/transcribe`, { method: 'POST', body: form })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail ?? 'Could not transcribe this recording.')
+  return data.text
+}
+
+export async function synthesizeSpeech(text: string): Promise<Blob> {
+  const response = await fetch(`${API}/speech`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
+  if (!response.ok) {
+    const data = await response.json()
+    throw new Error(data.detail ?? 'Could not create the voice response.')
+  }
+  return response.blob()
 }
 
 export async function getTask(id: string): Promise<Task> {

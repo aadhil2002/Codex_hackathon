@@ -1,28 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, Check, CircleHelp, Headphones, LoaderCircle, Mic, MicOff, PackageCheck, Send, ShoppingBag, Square } from 'lucide-react'
-import { cancelTask, createTask, getTask, subscribeToTask } from './services/api'
+import { ArrowUpRight, Check, CircleHelp, Headphones, LoaderCircle, Mic, MicOff, PackageCheck, Send, ShoppingBag, Square, Volume2 } from 'lucide-react'
+import { cancelTask, getTask, sendChat, subscribeToTask, synthesizeSpeech, transcribeAudio } from './services/api'
 import type { Task } from './types'
 
-const starter = 'Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.'
 const terminal = new Set(['completed', 'failed', 'cancelled', 'inconclusive'])
+type ChatBubble = { id: number; role: 'user' | 'assistant'; content: string; taskId?: string }
 
 export default function App() {
-  const [request, setRequest] = useState(starter)
+  const [request, setRequest] = useState('')
+  const [messages, setMessages] = useState<ChatBubble[]>([])
   const [task, setTask] = useState<Task | null>(null)
+  const [taskHistory, setTaskHistory] = useState<Record<string, Task>>({})
   const [busy, setBusy] = useState(false)
+  const [sending, setSending] = useState(false)
   const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const [speakingId, setSpeakingId] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [displayScreenshot, setDisplayScreenshot] = useState<string | null>(null)
   const recorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
   const chatEnd = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLOListElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   async function refresh(id: string) {
     try {
       const next = await getTask(id)
       setTask(next)
-      if (terminal.has(next.status)) setBusy(false)
+      setTaskHistory(previous => ({ ...previous, [id]: next }))
+      if (terminal.has(next.status)) {
+        setBusy(false)
+        const resultSummary = next.result?.verification_status === 'verified'
+          ? `Verified in the store: ${next.result.quantity ?? 1} ${next.result.selected_product?.name ?? 'item'} at ${next.result.displayed_price ?? 'the displayed price'}.`
+          : next.error ? `The store check ended without verification: ${next.error}` : ''
+        if (resultSummary) setMessages(previous => previous.map(message => message.taskId === id && !message.content.includes(resultSummary) ? { ...message, content: `${message.content}\n\n${resultSummary}` } : message))
+      }
     } catch (e) { setError(e instanceof Error ? e.message : 'Task update failed.') }
   }
 
@@ -33,7 +47,7 @@ export default function App() {
     return () => { source.close(); window.clearInterval(poll) }
   }, [task?.task_id, task?.status])
 
-  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [task?.events?.length, task?.products?.length, task?.result])
+  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [messages.length, task?.events?.length, task?.products?.length, task?.result])
 
   useEffect(() => {
     const last = timelineRef.current?.lastElementChild
@@ -46,14 +60,35 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [task?.screenshot])
 
-  async function startTask() {
+  async function sendMessage() {
     setError('')
-    if (request.trim().length < 4) { setError('Add a little more detail to your request.'); return }
+    setNotice('')
+    const content = request.trim()
+    if (content.length < 1) { setError('Type or speak a message first.'); return }
+    if (busy || sending || transcribing) return
+    const nextMessages: ChatBubble[] = [...messages, { id: Date.now(), role: 'user', content }]
+    setMessages(nextMessages)
+    setRequest('')
     try {
-      setBusy(true)
-      const created = await createTask(request.trim())
-      setTask(created)
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not start the task.'); setBusy(false) }
+      setSending(true)
+      const reply = await sendChat(nextMessages.slice(-12).map(({ role, content: text }) => ({ role, content: text })))
+      const assistant: ChatBubble = { id: Date.now() + 1, role: 'assistant', content: reply.message, taskId: reply.task?.task_id }
+      setMessages(current => [...current, assistant])
+      if (reply.task) {
+        setTask(reply.task)
+        setTaskHistory(previous => ({ ...previous, [reply.task!.task_id]: reply.task! }))
+        setBusy(!terminal.has(reply.task.status))
+      } else {
+        setBusy(false)
+      }
+      setSending(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not reach the shopping assistant.')
+      setMessages(current => current.filter(message => message.id !== nextMessages[nextMessages.length - 1].id))
+      setRequest(content)
+      setBusy(false)
+      setSending(false)
+    }
   }
 
   async function stopTask() {
@@ -61,9 +96,26 @@ export default function App() {
     if (recording) recorder.current?.stop()
   }
 
+  async function playReply(id: number, text: string) {
+    audioRef.current?.pause()
+    setSpeakingId(id)
+    try {
+      const blob = await synthesizeSpeech(text)
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); setSpeakingId(null) }
+      audio.onerror = () => { URL.revokeObjectURL(url); setSpeakingId(null); setError('Voice playback failed. You can still read the reply.') }
+      await audio.play()
+    } catch (e) {
+      setSpeakingId(null)
+      setError(e instanceof Error ? e.message : 'Could not play the voice reply.')
+    }
+  }
+
   async function toggleRecording() {
     setError('')
-    if (recording) { recorder.current?.stop(); setRecording(false); return }
+    if (recording) { recorder.current?.stop(); return }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { setError('Audio recording is not supported in this browser.'); return }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -71,7 +123,16 @@ export default function App() {
       recorder.current = media
       chunks.current = []
       media.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data) }
-      media.onstop = () => { stream.getTracks().forEach(track => track.stop()); setRecording(false); setError('Voice transcription is not enabled yet. Please review the typed request.') }
+      media.onstop = () => {
+        stream.getTracks().forEach(track => track.stop())
+        setRecording(false)
+        if (!chunks.current.length) return
+        setTranscribing(true)
+        void transcribeAudio(new Blob(chunks.current, { type: media.mimeType || 'audio/webm' }))
+          .then(transcript => { setRequest(transcript); setNotice('Transcript ready. Review it, then send your message.') })
+          .catch(e => setError(e instanceof Error ? e.message : 'Voice transcription failed.'))
+          .finally(() => setTranscribing(false))
+      }
       media.start()
       setRecording(true)
     } catch { setError('Microphone access was unavailable. You can type your request instead.') }
@@ -92,18 +153,20 @@ export default function App() {
           <div className="conversation-scroll">
             <div className="chat-welcome"><span className="assistant-avatar"><ShoppingBag size={16}/></span><div><strong>VocaPilot</strong><p>Hi! Tell me what you’re shopping for and I’ll find a match, then confirm the cart contents with you.</p></div></div>
             <div className="date-divider"><span>YOUR SHOPPING SESSION</span></div>
-            {task && <>
-              <div className="chat-message user-message"><span className="message-meta">YOU <time>{events[0] ? new Date(events[0].timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : 'JUST NOW'}</time></span><p>{task.input_text}</p></div>
-              {events.length > 0 && <div className="chat-message assistant-message"><span className="assistant-avatar small"><ShoppingBag size={13}/></span><div className="assistant-content"><span className="message-meta">VOCAPILOT</span><p>{busy ? events[events.length - 1].message : result?.verification_status === 'verified' ? 'I’ve finished and checked the rendered cart page. Here’s what I found.' : task.error || 'I’ve finished checking the request. Review the details below.'}</p>
-                {task.products?.length > 0 && <div className="chat-products">{task.products.slice(0, 3).map(product => <div className={`chat-product ${result?.selected_product?.name === product.name ? 'selected' : ''}`} key={product.name}><div className="product-thumb">{product.image_url && <img src={new URL(product.image_url, 'https://www.saucedemo.com').href} alt=""/>}</div><div className="product-info"><strong>{product.name}</strong><p>{product.description || 'Available in the store'}</p></div><b>{product.displayed_price}</b>{result?.selected_product?.name === product.name && <span className="match-tag"><Check size={11}/> MATCH</span>}</div>)}</div>}
-                {result && <div className="chat-cart"><div className="cart-icon"><PackageCheck size={18}/></div><div className="cart-copy"><span className="step-label">CART SUMMARY</span><strong>{result.selected_product?.name ?? 'Cart result'}</strong><p>Quantity {result.quantity ?? '—'} <span>·</span> {result.displayed_price ?? 'Price unavailable'}{result.subtotal && result.subtotal !== result.displayed_price ? ` · ${result.subtotal} subtotal` : ''}</p></div><span className={`verified-badge ${result.verification_status === 'verified' ? '' : 'unverified'}`}><Check size={12}/>{result.verification_status === 'verified' ? 'VERIFIED' : 'REVIEW'}</span></div>}
-              </div></div>}
-            </>}
-            {task?.error && <div className="error-banner" role="alert">{task.error}</div>}
+            {messages.map(message => <div key={message.id} className={`chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}>
+              {message.role === 'user' ? <><span className="message-meta">YOU <time>JUST NOW</time></span><p>{message.content}</p></> : <><span className="assistant-avatar small"><ShoppingBag size={13}/></span><div className="assistant-content"><div className="assistant-message-head"><span className="message-meta">VOCAPILOT</span><button className={`voice-reply ${speakingId === message.id ? 'speaking' : ''}`} onClick={() => void playReply(message.id, message.content)} aria-label="Play voice reply" title="Listen to reply"><Volume2 size={13}/>{speakingId === message.id ? 'Speaking' : 'Listen'}</button></div><p>{message.content}</p>
+                {message.taskId && (() => { const turnTask = taskHistory[message.taskId]; const turnResult = turnTask?.result; return <>
+                  {turnTask?.products?.length > 0 && <div className="chat-products">{turnTask.products.slice(0, 4).map(product => <div className={`chat-product ${turnResult?.selected_product?.name === product.name ? 'selected' : ''}`} key={product.name}><div className="product-thumb">{product.image_url && <img src={new URL(product.image_url, 'https://www.saucedemo.com').href} alt=""/>}</div><div className="product-info"><strong>{product.name}</strong><p>{product.description || 'Available in the store'}</p></div><b>{product.displayed_price}</b>{turnResult?.selected_product?.name === product.name && <span className="match-tag"><Check size={11}/> MATCH</span>}</div>)}</div>}
+                  {turnResult && <div className="chat-cart"><div className="cart-icon"><PackageCheck size={18}/></div><div className="cart-copy"><span className="step-label">CART SUMMARY</span><strong>{turnResult.selected_product?.name ?? 'Cart result'}</strong><p>Quantity {turnResult.quantity ?? '—'} <span>·</span> {turnResult.displayed_price ?? 'Price unavailable'}{turnResult.subtotal && turnResult.subtotal !== turnResult.displayed_price ? ` · ${turnResult.subtotal} subtotal` : ''}</p></div><span className={`verified-badge ${turnResult.verification_status === 'verified' ? '' : 'unverified'}`}><Check size={12}/>{turnResult.verification_status === 'verified' ? 'VERIFIED' : 'REVIEW'}</span></div>}
+                  {turnTask?.error && !turnResult && <div className="error-banner" role="alert">{turnTask.error}</div>}
+                  {!turnResult && !terminal.has(turnTask?.status ?? 'queued') && <span className="task-running"><LoaderCircle size={12}/> Checking the live store…</span>}
+                </> })()}
+              </div></>}
+            </div>)}
             {error && <div className="error-banner" role="alert">{error}</div>}
             <div ref={chatEnd}/>
           </div>
-          <div className="composer-dock"><div className="composer"><textarea aria-label="Your shopping request" value={request} onChange={e => setRequest(e.target.value)} maxLength={1000} placeholder="Ask for an item, a budget, or a product…" disabled={busy}/><div className="composer-toolbar"><div className="composer-tools"><button className={`composer-icon mic-control ${recording ? 'recording' : ''}`} onClick={() => void toggleRecording()} title={recording ? 'Stop recording' : 'Record request'} aria-label={recording ? 'Stop recording' : 'Record request'}>{recording ? <MicOff size={17}/> : <Mic size={17}/>}</button><span className="composer-hint">{recording ? 'Listening…' : 'Voice or text'} <span>·</span> {request.length}/1,000</span></div>{busy ? <button className="send-button stop-button" onClick={() => void stopTask()}><Square size={13} fill="currentColor"/><span>Stop</span></button> : <button className="send-button" onClick={() => void startTask()} aria-label="Send request"><span>Find my item</span><Send size={15}/></button>}</div></div><p className="composer-footnote"><Check size={12}/> Your cart is verified before I report back <span>·</span> No checkout without you</p></div>
+          <div className="composer-dock"><div className="composer"><textarea aria-label="Your message" value={request} onChange={e => { setRequest(e.target.value); setNotice('') }} maxLength={2000} placeholder="Ask me anything about what you’re shopping for…" disabled={busy || sending || transcribing}/><div className="composer-toolbar"><div className="composer-tools"><button className={`composer-icon mic-control ${recording ? 'recording' : ''}`} onClick={() => void toggleRecording()} title={recording ? 'Stop recording' : 'Record a voice message'} aria-label={recording ? 'Stop recording' : 'Record a voice message'} disabled={busy || sending || transcribing}>{recording ? <MicOff size={17}/> : <Mic size={17}/>}</button><span className="composer-hint">{recording ? 'Listening… click to finish' : transcribing ? 'Transcribing…' : notice || 'Voice or text'} <span>·</span> {request.length}/2,000</span></div>{busy ? <button className="send-button stop-button" onClick={() => void stopTask()}><Square size={13} fill="currentColor"/><span>Stop</span></button> : <button className="send-button" onClick={() => void sendMessage()} aria-label="Send message" disabled={transcribing || sending}><span>{sending ? 'Thinking…' : 'Send'}</span>{sending ? <LoaderCircle size={14}/> : <Send size={15}/>}</button>}</div></div><p className="composer-footnote"><Check size={12}/> Your cart is verified before I report back <span>·</span> No checkout without you</p></div>
         </section>
         <aside className="browser-sidebar"><div className="browser-sticky panel"><div className="panel-heading browser-heading"><div><span className="step-label">LIVE BROWSER</span><h2>Store preview</h2></div><span className={`live-pill ${displayScreenshot ? 'active' : ''}`}><i/>{displayScreenshot ? 'LIVE' : 'READY'}</span></div><div className="browser-frame"><div className="browser-chrome"><div className="window-dots"><b/><b/><b/></div><span className="url-bar"><span className="lock">▣</span> {task?.page_url ? new URL(task.page_url).hostname : 'saucedemo.com'}</span><span className="chrome-menu">···</span></div>{displayScreenshot ? <img key={displayScreenshot.slice(-80)} className="browser-image" src={displayScreenshot} alt={`Screenshot of ${task?.page_title ?? 'the actual SauceDemo browser session'}`}/> : <div className="browser-empty"><div className="store-illustration"><div className="sun-disc"/><div className="shelf shelf-one"><i/><i/><i/></div><div className="shelf shelf-two"><i/><i/><i/></div><span className="plant">✳</span></div><strong>Your store, in view</strong><span>Store activity appears here as I shop.</span></div>}</div><div className="browser-caption"><span><i/>{task?.page_title || 'Waiting for your request'}</span><span>LIVE SCREEN</span></div><div className="browser-note"><CircleHelp size={13}/><span>Actual browser screenshots update after each verified navigation step.</span></div></div></aside>
       </section>

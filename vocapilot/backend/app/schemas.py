@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -10,6 +12,29 @@ class TaskCreate(BaseModel):
     input_text: str = Field(min_length=4, max_length=1000)
     source: Literal["text", "voice"] = "text"
     target: Literal["saucedemo"] = "saucedemo"
+    intent: dict | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=20)
+
+
+class ChatResponse(BaseModel):
+    message: str
+    task: "TaskView | None" = None
+
+
+class TranscriptionResponse(BaseModel):
+    text: str
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class Product(BaseModel):

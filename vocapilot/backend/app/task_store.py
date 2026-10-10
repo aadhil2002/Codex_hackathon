@@ -13,7 +13,7 @@ class TaskStore:
 
     def create(self, request: TaskCreate) -> TaskView:
         task_id = str(uuid4())
-        task = TaskView(task_id=task_id, status="queued", input_text=request.input_text)
+        task = TaskView(task_id=task_id, status="queued", input_text=request.input_text, intent=request.intent)
         self.tasks[task_id] = task
         self.cancel_flags[task_id] = asyncio.Event()
         self.changed[task_id] = asyncio.Condition()

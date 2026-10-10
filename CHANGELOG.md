@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T00:08:44+05:30 — Connect conversational text and voice models
+
+- Changed: Replaced regex product intent parsing with OpenAI Responses API chat routing, short conversation history, natural-language follow-ups, and model-based matching against live observed store products. Added transcription, voice playback, configurable model names, and support for both `OPENAI_API_KEY` and the user's `OPEN_API_KEY` spelling. Replaced the UI's single fixed request with persistent conversation bubbles. Updated setup and submission notes.
+- Why: Make VocaPilot respond conversationally and understand requests beyond fixed product keywords, with voice input and output.
+- Validation: Frontend production build passed. Backend tests: 11 passed, 1 opt-in live test skipped; chat, product routing, transcription, and speech endpoints were exercised with mocks. OpenAI SDK 2.54.0 installed locally. `git diff --check` passed.
+- Limitations: No API key has been configured in this workspace, so live model calls and SauceDemo shopping through the model path remain unverified. Voice capture is uploaded for transcription; voice responses play after the user selects Listen. No realtime audio conversation.
+
 ## 2026-10-10T23:52:06+05:30 — Fit workspace to viewport and smooth browser updates
 
 - Changed: Made the desktop workspace fill the viewport without main-page scrolling; the session timeline now has its own scrollbar and smoothly follows new events. Enlarged the fixed browser panel, delayed screenshot display slightly and added subtle transitions. The browser now captures the post-login inventory and waits for the rendered cart item before its final screenshot. Updated demo instructions.

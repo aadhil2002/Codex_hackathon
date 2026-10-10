@@ -5,8 +5,8 @@ from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright
 
+from app.openai_service import choose_product
 from app.schemas import Product
-from app.shopping_intent import parse_intent
 from app.task_store import store
 from app.verification import verify_cart_contents
 
@@ -47,7 +47,9 @@ async def _run_shopping_task(task_id: str) -> None:
     try:
         task.status = "running"
         store.emit(task_id, "task_started", "Starting the SauceDemo shopping workflow.")
-        intent = parse_intent(task.input_text)
+        intent = task.intent
+        if not intent:
+            raise ValueError("A model-derived shopping intent is required before opening the store.")
         task.intent = intent
         store.emit(task_id, "intent_parsed", "Parsed a one-item cart request; checkout is disabled.", intent)
         _check_cancel(task_id)
@@ -101,23 +103,30 @@ async def _run_shopping_task(task_id: str) -> None:
             store.emit(task_id, "products_observed", f"Read {len(observed)} products and prices from the inventory page.",
                        {"products": [p.model_dump() for p in observed]})
 
-            if intent["requested_product"]:
-                needle = intent["requested_product"].casefold()
-                candidates = [p for p in observed if needle in p.name.casefold() or p.name.casefold() in needle]
-            else:
-                candidates = [p for p in observed if "backpack" in p.name.casefold()]
             if intent["max_price"] is not None:
-                candidates = [p for p in candidates if p.price_value <= intent["max_price"]]
-            store.emit(task_id, "products_compared", f"Compared {len(candidates)} matching products using displayed prices.",
-                       {"matching_names": [p.name for p in candidates]})
+                candidates = [p for p in observed if p.price_value <= intent["max_price"]]
+            else:
+                candidates = observed
             if not candidates:
                 task.status = "inconclusive"
-                task.error = "No visible inventory product matched the request and any stated budget."
+                task.error = "No displayed product is within the requested budget."
                 store.emit(task_id, "error", task.error)
                 return
-            selected = min(candidates, key=lambda p: p.price_value)
-            store.emit(task_id, "product_selected", f"Selected {selected.name} at the lowest matching displayed price {selected.displayed_price}.",
-                       {"product": selected.model_dump(), "reason": "Lowest displayed price among matching products."})
+            selected_index = await choose_product(
+                f"{task.input_text}\nProduct intent: {intent['requested_product']}",
+                [{"name": p.name, "description": p.description, "displayed_price": p.displayed_price,
+                  "price_value": p.price_value} for p in candidates],
+            )
+            if selected_index is None or not 0 <= selected_index < len(candidates):
+                task.status = "inconclusive"
+                task.error = "I couldn’t find a confident match in the products currently shown by the store."
+                store.emit(task_id, "error", task.error)
+                return
+            selected = candidates[selected_index]
+            store.emit(task_id, "products_compared", f"Matched the request against {len(candidates)} visible products and their displayed prices.",
+                       {"matching_names": [p.name for p in candidates], "selected_name": selected.name})
+            store.emit(task_id, "product_selected", f"Matched {selected.name} at the displayed price {selected.displayed_price}.",
+                       {"product": selected.model_dump(), "reason": "Best model match among the visible products within budget."})
             _check_cancel(task_id)
 
             card = product_cards.filter(has=page.get_by_text(selected.name, exact=True)).first
