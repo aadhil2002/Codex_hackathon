@@ -1,0 +1,44 @@
+.voice-transcript {
+  min-width: 0;
+  flex: 1;
+  padding: 7px 0;
+  color: #7e8990;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-transcript.listening {
+  color: #526d29;
+  font-weight: 600;
+}
+
+.composer .mic-button {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: #9bc94b;
+  color: #233416;
+  border: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.composer .send-button {
+  width: auto;
+  min-width: 44px;
+  padding: 0 9px;
+  font: 600 10px 'DM Sans', sans-serif;
+}
+
+.composer .mic-button:hover { background: #add862; }
+.composer .mic-button.recording { background: #f8dddd; color: #b94444; }
+.composer .mic-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.product-choices{display:grid;gap:6px;margin-top:7px}.product-choices button{border:1px solid #dce5ce;border-radius:8px;background:#fff;padding:8px 10px;text-align:left;color:#40552a;font:11px 'DM Sans',sans-serif;cursor:pointer}.product-choices button:hover{border-color:#9bc94b;background:#f8fbed}.product-choices button:disabled{opacity:.6;cursor:wait}.message-content{max-width:84%}.message-content .message-bubble{max-width:100%}
