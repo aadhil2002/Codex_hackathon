@@ -1,11 +1,12 @@
 import asyncio
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from openai import AuthenticationError, OpenAIError
 
 from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
-from app.playwright_shopping import run_shopping_task
+from app.playwright_shopping import allowed_store_url, run_shopping_task
 from app.schemas import ChatRequest, ChatResponse, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
 from app.task_store import store
 
@@ -49,9 +50,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         "quantity": 1,
         "checkout_allowed": False,
     }
-    task = store.create(TaskCreate(input_text=user_text, intent=intent))
-    asyncio.create_task(run_shopping_task(task.task_id))
-    return ChatResponse(message=turn["message"], task=task)
+    return ChatResponse(message=turn["message"], shopping_intent=intent)
 
 
 @router.post("/transcribe", response_model=TranscriptionResponse)
@@ -85,26 +84,16 @@ async def speech(request: SpeechRequest) -> Response:
 
 @router.post("/tasks", response_model=TaskView, status_code=202)
 async def create_task(request: TaskCreate) -> TaskView:
-    if request.target != "saucedemo":
-        raise HTTPException(status_code=422, detail="Only the configured SauceDemo target is available.")
+    if request.site is None:
+        raise HTTPException(status_code=422, detail="Open your profile and add the store URL and sign-in details before shopping.")
+    target = str(request.site.url).rstrip("/")
+    parsed_target = urlparse(target)
+    if not allowed_store_url(target) or parsed_target.query or parsed_target.fragment:
+        raise HTTPException(status_code=422, detail="Use a public HTTPS store address. Local and private network addresses are blocked.")
     if request.intent is None:
-        try:
-            turn = await route_chat([{"role": "user", "content": request.input_text}])
-        except OpenAIConfigurationError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-        except OpenAIError as exc:
-            raise _openai_http_error("chat request", exc) from exc
-        product_query = (turn.get("product_query") or "").strip()
-        if turn["action"] != "shop" or not product_query:
-            raise HTTPException(status_code=422, detail=turn["message"])
-        request.intent = {
-            "request": request.input_text,
-            "requested_product": product_query,
-            "max_price": turn.get("max_price"),
-            "quantity": 1,
-            "checkout_allowed": False,
-        }
+        raise HTTPException(status_code=422, detail="A shopping intent is required.")
     task = store.create(request)
+    store.credentials[task.task_id] = (request.site.email, request.site.password.get_secret_value())
     asyncio.create_task(run_shopping_task(task.task_id))
     return task
 

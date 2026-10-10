@@ -6,10 +6,11 @@ from playwright.async_api import async_playwright
 from app.playwright_shopping import allowed_store_url
 
 
-def test_store_allowlist_rejects_other_origins_and_schemes():
+def test_store_url_accepts_public_https_hosts_and_rejects_unsafe_addresses():
     assert allowed_store_url("https://www.saucedemo.com/inventory.html")
-    assert not allowed_store_url("https://example.com/")
-    assert not allowed_store_url("https://www.saucedemo.com.example.net/")
+    assert allowed_store_url("https://8.8.8.8/")
+    assert not allowed_store_url("https://127.0.0.1/")
+    assert not allowed_store_url("https://10.0.0.2/")
     assert not allowed_store_url("https://user@www.saucedemo.com/")
     assert not allowed_store_url("javascript:alert(1)")
     assert not allowed_store_url("http://www.saucedemo.com/")

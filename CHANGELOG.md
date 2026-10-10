@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T01:23:55+05:30 - Remove browser preview and generalize store setup
+
+- Changed: Removed the embedded live-browser preview, enlarged chat and progress text, and made the conversation follow new messages and task updates. Added an account-icon profile dialog for a store URL and optional email/username and password, held in frontend memory. Chat routing happens first without credentials; only a shopping task request sends profile values to the backend. The API keeps sign-in fields separate from model prompts and public task data, and clears them when a task finishes. Replaced the SauceDemo-only navigation, login, inventory, and cart selectors with public HTTPS validation and semantic page discovery. Model matching now returns relevant category alternatives. Removed screenshots from task output and updated the public-HTTPS URL validation fixture. Updated README and AI usage notes.
+- Why: Let the user choose a store without environment-based website credentials, improve chat readability, and avoid tying shopping behavior to one storefront's markup.
+- Validation: Frontend `npm run build` passed. Backend `python -m compileall -q app` passed. `git diff --check` passed. Backend tests and live store interactions were not run for this revision.
+- Limitations: Store compatibility is best-effort and depends on readable product names/prices, password fields, add/buy controls, and recognizable cart links. Public HTTPS destinations only; cross-site navigation is blocked. Unusual or inaccessible storefront flows may stop without verification.
+
 ## 2026-10-11T01:11:04+05:30 - Improve chat input, voice control, and shirt matching
 
 - Changed: Enter sends chat messages while Shift+Enter inserts a line break; moved the mic to a prominent labeled Speak button beside Send. Expanded natural-language product matching, start searches when the product type is clear instead of asking optional fit questions, surface all live shirt options for shirt requests, and avoid color variants explicitly named in a conflicting product title. Automatically use a sole non-conflicting shirt option when available, and disclose when the requested color is unlisted. Updated README setup/demo guidance.
