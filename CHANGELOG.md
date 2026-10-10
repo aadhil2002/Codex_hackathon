@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-10T23:20:55+05:30 — Install workspace runtime and run app
+
+- Changed: Installed portable CPython 3.12.10, pip packages, and Playwright headless Chromium under ignored `.tools/`. Fixed intent parsing so negative checkout wording is allowed and product names stop before cart instructions. Updated setup/check commands and actual validation results in README and submission details.
+- Why: The machine had no registered Python; the app needed an isolated local runtime to start its API and exercise the backend tests without a system-wide installation.
+- Validation: Backend tests: 9 passed, 1 opt-in live-site test skipped. Playwright Chromium launched successfully. Frontend production build passed. Frontend and API health returned HTTP 200. Live SauceDemo shopping workflow was not run.
+- Limitations: Voice transcription and OpenAI Computer Use remain incomplete. Live site automation was not verified; pytest emits a Starlette/httpx deprecation warning.
+
 ## 2026-10-10T22:51:54+05:30 — Ignore TypeScript build metadata
 
 - Changed: Added a `.gitignore` rule for `*.tsbuildinfo`.

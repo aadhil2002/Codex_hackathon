@@ -18,11 +18,11 @@
 ## Run and demonstrate
 
 - **Prerequisites and versions:** Python 3.11; Node.js 20.19+ or 22.12+; Chromium via Playwright.
-- **Install command:** `pip install -r vocapilot/backend/requirements.txt`, `playwright install chromium`, and `npm install` from `vocapilot/frontend`.
+- **Install command:** `python -m pip install -r vocapilot/backend/requirements.txt`, `python -m playwright install chromium`, and `npm install` from `vocapilot/frontend`.
 - **Required environment variable names:** `SAUCEDEMO_USERNAME`, `SAUCEDEMO_PASSWORD`, `SAUCEDEMO_BASE_URL` (optional overrides; see backend `.env.example`).
-- **Start command:** `uvicorn app.main:app --reload --port 8000` from `vocapilot/backend`; `npm run dev` from `vocapilot/frontend`.
+- **Start command:** `python -m uvicorn app.main:app --reload --port 8000` from `vocapilot/backend`; `npm run dev` from `vocapilot/frontend`.
 - **Demo walkthrough:** Enter the prepared backpack request, start the task, observe the actual SauceDemo screenshot and product observations, and review the verified cart summary. The flow does not check out.
-- **Checks performed and results:** Not yet run; this environment has Node.js/npm but no Python runtime. Frontend build also remains unchecked.
+- **Checks performed and results:** Backend pytest suite: 9 passed, 1 opt-in live-store test skipped. Frontend production build passed. API health and frontend returned HTTP 200. Live SauceDemo test not yet run.
 - **Known limitations or incomplete features:** Optional OpenAI Computer Use and speech transcription are not implemented. Voice recording currently reports that transcription is unavailable. Live store access and cart automation have not yet been verified in this environment.
 - **Libraries, APIs, and public datasets used:** React, Vite, FastAPI, Playwright, Chromium, and the SauceDemo public testing website. Optional OpenAI Computer Use guide: https://developers.openai.com/api/docs/guides/tools-computer-use
 - **AI usage record:** [AI_USAGE.md](AI_USAGE.md)

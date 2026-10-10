@@ -4,11 +4,11 @@ A voice-friendly shopping assistant prototype that turns a typed request into a 
 
 ## Current baseline
 
-Implemented: deterministic SauceDemo browser workflow, FastAPI task API with task state and SSE events, React request/results/timeline/cart interface, screenshot preview, and cancellation. Text requests are supported. Voice recording, transcription, OpenAI Computer Use, and expanded test coverage remain incomplete.
+Implemented: deterministic SauceDemo browser workflow, FastAPI task API with task state and SSE events, React request/results/timeline/cart interface, screenshot preview, cancellation, and focused pytest coverage. Text requests are supported. Voice transcription and OpenAI Computer Use remain incomplete. The live SauceDemo browser test is opt-in.
 
 ## Prerequisites
 
-- Python 3.11
+- Python 3.11 or newer
 - Node.js 20.19+ or 22.12+ and npm
 - Chromium installed by Playwright
 - Network access to `https://www.saucedemo.com/` for the live demo
@@ -18,23 +18,23 @@ The configured SauceDemo demo account defaults to `standard_user` / `secret_sauc
 ## Setup
 
 1. Create and activate a virtual environment in `vocapilot/backend`.
-2. Install backend dependencies: `pip install -r requirements.txt`.
-3. Install Chromium: `playwright install chromium`.
+2. Install backend dependencies: `python -m pip install -r requirements.txt`.
+3. Install Chromium: `python -m playwright install chromium`.
 4. Copy `vocapilot/backend/.env.example` to `.env` if overrides are needed. Do not put real credentials in this file.
 5. In `vocapilot/frontend`, run `npm install`.
 
 ## Run
 
-Start the API from `vocapilot/backend` with `uvicorn app.main:app --reload --port 8000`.
+Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`.
 Start the UI from `vocapilot/frontend` with `npm run dev` and open the Vite URL it prints.
 
 Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The screenshot preview is an image of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
 
 ## Checks
 
-- Backend tests: `pytest` (pending; Python is not installed in this implementation environment).
-- Frontend: `npm run build` (pending).
-- Browser workflow: `pytest` live SauceDemo test (requires network and Chromium; pending).
+- Backend tests: `python -m pytest -q` from `vocapilot/backend` (9 passed, 1 opt-in live test skipped).
+- Frontend: `npm run build` from `vocapilot/frontend` (passed).
+- Live browser test: set `RUN_LIVE_SAUCEDEMO=1` and run `python -m pytest -q tests/test_saucedemo_cart.py`; it has not been run yet.
 
 ## Sources
 
