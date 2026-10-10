@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-10T23:40:03+05:30 — Rework shopping interface as a conversation
+
+- Changed: Replaced the multi-card dashboard with a chat-centered layout: task messages and product/cart results appear above a pinned horizontal text/mic composer, progress events live in a left sidebar, and the live browser preview stays in a sticky right panel. Updated responsive layouts and README UI/demo description.
+- Why: Make the request feel conversational while keeping task progress and the browser visible during shopping.
+- Validation: `npm run build` from `vocapilot/frontend` passed (TypeScript and Vite production build).
+- Limitations: The backend still exposes one active task per screen; previous independent shopping sessions are not persisted as chat history. Voice recording remains available but transcription is not enabled. The browser panel shows screenshots, not an interactive browser.
+
 ## 2026-10-10T23:20:55+05:30 — Install workspace runtime and run app
 
 - Changed: Installed portable CPython 3.12.10, pip packages, and Playwright headless Chromium under ignored `.tools/`. Fixed intent parsing so negative checkout wording is allowed and product names stop before cart instructions. Updated setup/check commands and actual validation results in README and submission details.

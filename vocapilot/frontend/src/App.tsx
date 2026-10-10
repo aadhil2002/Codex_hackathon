@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, Check, CircleHelp, Headphones, LoaderCircle, Mic, MicOff, PackageCheck, ShoppingBag, Square, Volume2 } from 'lucide-react'
+import { ArrowUpRight, Check, CircleHelp, Headphones, LoaderCircle, Mic, MicOff, PackageCheck, Send, ShoppingBag, Square } from 'lucide-react'
 import { cancelTask, createTask, getTask, subscribeToTask } from './services/api'
 import type { Task } from './types'
 
@@ -14,6 +14,7 @@ export default function App() {
   const [error, setError] = useState('')
   const recorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
+  const chatEnd = useRef<HTMLDivElement>(null)
 
   async function refresh(id: string) {
     try {
@@ -29,6 +30,8 @@ export default function App() {
     const poll = window.setInterval(() => void refresh(task.task_id), 1100)
     return () => { source.close(); window.clearInterval(poll) }
   }, [task?.task_id, task?.status])
+
+  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [task?.events?.length, task?.products?.length, task?.result])
 
   async function startTask() {
     setError('')
@@ -55,44 +58,43 @@ export default function App() {
       recorder.current = media
       chunks.current = []
       media.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data) }
-      media.onstop = () => { stream.getTracks().forEach(track => track.stop()); setRecording(false); setError('Voice transcription is not enabled yet. Please review the typed transcript in the request box.') }
+      media.onstop = () => { stream.getTracks().forEach(track => track.stop()); setRecording(false); setError('Voice transcription is not enabled yet. Please review the typed request.') }
       media.start()
       setRecording(true)
     } catch { setError('Microphone access was unavailable. You can type your request instead.') }
   }
 
   const result = task?.result
+  const events = task?.events ?? []
   return <main className="app-shell">
     <header className="topbar"><a className="brand" href="#top"><span className="brand-mark"><ShoppingBag size={19} /></span><span>voca<span className="brand-accent">pilot</span></span></a><div className="topbar-right"><span className="store-pill"><i /> SAUCEDEMO STORE</span><span className="header-divider"/><span className="avatar">VP</span></div></header>
     <div className="content" id="top">
-      <section className="intro"><div><div className="eyebrow"><span className="spark">✳</span> YOUR PERSONAL SHOPPING ASSISTANT</div><h1>What can I help you <em>find?</em></h1><p>Tell me what you’re looking for. I’ll compare what’s on the shelf and add your best match to the cart.</p></div><div className="intro-note"><Headphones size={16}/><span>Speak naturally, or type your request</span></div></section>
-      <section className="workspace">
-        <article className="panel request-panel"><div className="panel-heading"><div><span className="step-label">01 / YOUR REQUEST</span><h2>Let’s find your item</h2></div><span className="private-pill"><span/> Private session</span></div>
-          <label className="request-label" htmlFor="request">What are you shopping for?</label>
-          <textarea id="request" value={request} onChange={e => setRequest(e.target.value)} maxLength={1000} placeholder="e.g. Find me a lightweight backpack under $50..." disabled={busy}/>
-          <div className="request-meta"><span>Try “backpack under $50” or name a Sauce Labs product</span><span>{request.length} / 1,000</span></div>
-          <div className="request-actions"><button className={`mic-button ${recording ? 'recording' : ''}`} onClick={() => void toggleRecording()} title={recording ? 'Stop recording' : 'Record request'}><span className="mic-inner">{recording ? <MicOff size={17}/> : <Mic size={17}/>}</span>{recording ? <><span className="pulse"/> Listening…</> : 'Speak your request'}</button>
-            {busy ? <button className="cancel-button" onClick={() => void stopTask()}><Square size={13} fill="currentColor"/> Cancel task</button> : <button className="primary-button" onClick={() => void startTask()}><span>Find my item</span><ArrowUpRight size={17}/></button>}</div>
-          {error && <div className="error-banner" role="alert">{error}</div>}
-          <div className="trust-line"><Check size={13}/> Your cart is verified before I report back <span>·</span> No checkout without you</div>
-        </article>
-        <aside className="panel browser-panel"><div className="panel-heading browser-heading"><div><span className="step-label">02 / LIVE BROWSER</span><h2>Store preview</h2></div><span className={`live-pill ${task?.screenshot ? 'active' : ''}`}><i/>{task?.screenshot ? 'CONNECTED' : 'READY'}</span></div>
-          <div className="browser-frame"><div className="browser-chrome"><div className="window-dots"><b/><b/><b/></div><span className="url-bar"><span className="lock">▣</span> saucedemo.com</span><span className="chrome-menu">···</span></div>
-            {task?.screenshot ? <img className="browser-image" src={task.screenshot} alt={`Screenshot of ${task.page_title ?? 'the actual SauceDemo browser session'}`}/> : <div className="browser-empty"><div className="store-illustration"><div className="sun-disc"/><div className="shelf shelf-one"><i/><i/><i/></div><div className="shelf shelf-two"><i/><i/><i/></div><span className="plant">✳</span></div><strong>Your store, in view</strong><span>Once we start, I’ll show you exactly what I see.</span></div>}
-          </div><div className="browser-caption"><span><i/>{task?.page_title || 'Waiting for your request'}</span><span>SCREENSHOT PREVIEW</span></div>
+      <section className="intro"><div><div className="eyebrow"><span className="spark">✳</span> YOUR PERSONAL SHOPPING ASSISTANT</div><h1>Shopping, <em>in conversation.</em></h1><p>Tell me what you need. I’ll compare what’s in the store and verify your cart.</p></div><div className="intro-note"><Headphones size={16}/><span>Speak naturally, or type your request</span></div></section>
+      <section className="chat-layout">
+        <aside className="progress-sidebar panel"><div className="side-heading"><span className="step-label">YOUR SESSION</span><span className="private-pill"><span/> Private</span></div><h2>Shopping progress</h2><p className="side-subtitle">A live view of each step.</p>
+          <ol className="timeline">{events.length === 0 ? <li className="timeline-placeholder"><span className="timeline-dot idle-dot"/><div><strong>Ready when you are</strong><p>Your shopping steps will appear here.</p></div></li> : events.map((event, i) => <li key={event.id} className="timeline-item"><span className={`timeline-dot ${i === events.length - 1 && busy ? 'current-dot' : 'done-dot'}`}>{i < events.length - 1 || !busy ? <Check size={10}/> : null}</span><div><strong>{event.message}</strong><time>{new Date(event.timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</time></div></li>)}</ol>
+          <div className={`status-card ${busy ? 'is-busy' : ''}`}>{busy ? <LoaderCircle size={14}/> : <Check size={14}/>}<span>{busy ? 'Working on your request' : result?.verification_status === 'verified' ? 'Cart verified' : 'Checkout stays in your control'}</span></div>
         </aside>
+        <section className="conversation" aria-label="Shopping conversation">
+          <div className="conversation-scroll">
+            <div className="chat-welcome"><span className="assistant-avatar"><ShoppingBag size={16}/></span><div><strong>VocaPilot</strong><p>Hi! Tell me what you’re shopping for and I’ll find a match, then confirm the cart contents with you.</p></div></div>
+            <div className="date-divider"><span>YOUR SHOPPING SESSION</span></div>
+            {task && <>
+              <div className="chat-message user-message"><span className="message-meta">YOU <time>{events[0] ? new Date(events[0].timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : 'JUST NOW'}</time></span><p>{task.input_text}</p></div>
+              {events.length > 0 && <div className="chat-message assistant-message"><span className="assistant-avatar small"><ShoppingBag size={13}/></span><div className="assistant-content"><span className="message-meta">VOCAPILOT</span><p>{busy ? events[events.length - 1].message : result?.verification_status === 'verified' ? 'I’ve finished and checked the rendered cart page. Here’s what I found.' : task.error || 'I’ve finished checking the request. Review the details below.'}</p>
+                {task.products?.length > 0 && <div className="chat-products">{task.products.slice(0, 3).map(product => <div className={`chat-product ${result?.selected_product?.name === product.name ? 'selected' : ''}`} key={product.name}><div className="product-thumb">{product.image_url && <img src={new URL(product.image_url, 'https://www.saucedemo.com').href} alt=""/>}</div><div className="product-info"><strong>{product.name}</strong><p>{product.description || 'Available in the store'}</p></div><b>{product.displayed_price}</b>{result?.selected_product?.name === product.name && <span className="match-tag"><Check size={11}/> MATCH</span>}</div>)}</div>}
+                {result && <div className="chat-cart"><div className="cart-icon"><PackageCheck size={18}/></div><div className="cart-copy"><span className="step-label">CART SUMMARY</span><strong>{result.selected_product?.name ?? 'Cart result'}</strong><p>Quantity {result.quantity ?? '—'} <span>·</span> {result.displayed_price ?? 'Price unavailable'}{result.subtotal && result.subtotal !== result.displayed_price ? ` · ${result.subtotal} subtotal` : ''}</p></div><span className={`verified-badge ${result.verification_status === 'verified' ? '' : 'unverified'}`}><Check size={12}/>{result.verification_status === 'verified' ? 'VERIFIED' : 'REVIEW'}</span></div>}
+              </div></div>}
+            </>}
+            {task?.error && <div className="error-banner" role="alert">{task.error}</div>}
+            {error && <div className="error-banner" role="alert">{error}</div>}
+            <div ref={chatEnd}/>
+          </div>
+          <div className="composer-dock"><div className="composer"><textarea aria-label="Your shopping request" value={request} onChange={e => setRequest(e.target.value)} maxLength={1000} placeholder="Ask for an item, a budget, or a product…" disabled={busy}/><div className="composer-toolbar"><div className="composer-tools"><button className={`composer-icon mic-control ${recording ? 'recording' : ''}`} onClick={() => void toggleRecording()} title={recording ? 'Stop recording' : 'Record request'} aria-label={recording ? 'Stop recording' : 'Record request'}>{recording ? <MicOff size={17}/> : <Mic size={17}/>}</button><span className="composer-hint">{recording ? 'Listening…' : 'Voice or text'} <span>·</span> {request.length}/1,000</span></div>{busy ? <button className="send-button stop-button" onClick={() => void stopTask()}><Square size={13} fill="currentColor"/><span>Stop</span></button> : <button className="send-button" onClick={() => void startTask()} aria-label="Send request"><span>Find my item</span><Send size={15}/></button>}</div></div><p className="composer-footnote"><Check size={12}/> Your cart is verified before I report back <span>·</span> No checkout without you</p></div>
+        </section>
+        <aside className="browser-sidebar"><div className="browser-sticky panel"><div className="panel-heading browser-heading"><div><span className="step-label">LIVE BROWSER</span><h2>Store preview</h2></div><span className={`live-pill ${task?.screenshot ? 'active' : ''}`}><i/>{task?.screenshot ? 'LIVE' : 'READY'}</span></div><div className="browser-frame"><div className="browser-chrome"><div className="window-dots"><b/><b/><b/></div><span className="url-bar"><span className="lock">▣</span> saucedemo.com</span><span className="chrome-menu">···</span></div>{task?.screenshot ? <img className="browser-image" src={task.screenshot} alt={`Screenshot of ${task.page_title ?? 'the actual SauceDemo browser session'}`}/> : <div className="browser-empty"><div className="store-illustration"><div className="sun-disc"/><div className="shelf shelf-one"><i/><i/><i/></div><div className="shelf shelf-two"><i/><i/><i/></div><span className="plant">✳</span></div><strong>Your store, in view</strong><span>Store activity appears here as I shop.</span></div>}</div><div className="browser-caption"><span><i/>{task?.page_title || 'Waiting for your request'}</span><span>LIVE PREVIEW</span></div><div className="browser-note"><CircleHelp size={13}/><span>This is a live screenshot preview of the shopping session.</span></div></div></aside>
       </section>
-      <section className="lower-grid"><article className="panel activity-panel"><div className="panel-heading lower-heading"><div><span className="step-label">03 / PROGRESS</span><h2>Shopping activity</h2></div><span className="activity-count">{task?.events?.length ?? 0} updates</span></div>
-          <ol className="timeline">{(task?.events ?? []).length === 0 ? <li className="timeline-placeholder"><span className="timeline-dot idle-dot"/><div><strong>Ready when you are</strong><p>Your search steps will show up here, one by one.</p></div></li> : task!.events.map((event, i) => <li key={event.id} className="timeline-item"><span className={`timeline-dot ${i === task!.events.length - 1 && busy ? 'current-dot' : 'done-dot'}`}>{i < task!.events.length - 1 ? <Check size={10}/> : null}</span><div><strong>{event.message}</strong><time>{new Date(event.timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</time></div></li>)}</ol>
-          {busy && <div className="working-label"><LoaderCircle size={13}/> Shopping in progress</div>}
-        </article>
-        <article className="panel results-panel"><div className="panel-heading lower-heading"><div><span className="step-label">04 / YOUR MATCH</span><h2>Product comparison</h2></div><span className="results-count">{task?.products?.length ?? 0} found</span></div>
-          {!task?.products.length ? <div className="result-empty"><div className="result-empty-icon"><ShoppingBag size={17}/></div><div><strong>Your picks will appear here</strong><p>Real products and prices from the store page.</p></div></div> : <><div className="product-list">{task.products.map(p => <div className={`product-row ${result?.selected_product?.name === p.name ? 'selected' : ''}`} key={p.name}><div className="product-thumb">{p.image_url && <img src={new URL(p.image_url, 'https://www.saucedemo.com').href} alt=""/>}</div><div className="product-info"><strong>{p.name}</strong><p>{p.description || 'No additional details shown'}</p></div><b className="product-price">{p.displayed_price}</b>{result?.selected_product?.name === p.name && <span className="match-tag"><Check size={11}/> SELECTED</span>}</div>)}</div><p className="comparison-note">Selection uses the lowest matching displayed price. Fit and other unlisted details are unknown.</p></>}
-        </article>
-      </section>
-      <section className={`cart-panel ${result ? 'has-result' : ''}`}><div className="cart-icon"><PackageCheck size={20}/></div><div className="cart-copy"><span className="step-label">05 / CART SUMMARY</span><h2>{result?.verification_status === 'verified' ? 'Cart verified' : 'Your cart, confirmed'}</h2><p>{result?.verification_status === 'verified' ? 'I checked the actual cart page before reporting this.' : 'Once an item is added, I’ll verify it in the store.'}</p></div>{result ? <div className="cart-details"><div><span>ITEM</span><strong>{result.selected_product?.name ?? 'Unknown'}</strong></div><div><span>QTY</span><strong>{result.quantity ?? '—'}</strong></div><div><span>PRICE / SUBTOTAL</span><strong>{result.displayed_price ?? '—'}{result.subtotal && result.subtotal !== result.displayed_price ? ` / ${result.subtotal}` : ''}</strong></div><span className="verified-badge"><Check size={12}/> {result.verification_status === 'verified' ? 'VERIFIED' : 'INCONCLUSIVE'}</span></div> : <div className="cart-waiting"><span><CircleHelp size={14}/> Waiting for your selection</span><Volume2 size={15}/></div>}</section>
-      {task?.error && <div className="task-error">{task.error}</div>}
-      <footer><span>VocaPilot <span className="footer-sep">/</span> Demo store: SauceDemo</span><span><i/> Checkout is always out of scope <span className="footer-sep">·</span> <a href="https://www.saucedemo.com" target="_blank" rel="noreferrer">About SauceDemo <ArrowUpRight size={10}/></a></span></footer>
+      <footer><span>VocaPilot <span className="footer-sep">/</span> Demo store: SauceDemo</span><span><i/> Checkout is always in your control <span className="footer-sep">·</span> <a href="https://www.saucedemo.com" target="_blank" rel="noreferrer">About SauceDemo <ArrowUpRight size={10}/></a></span></footer>
     </div>
   </main>
 }

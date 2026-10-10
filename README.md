@@ -4,7 +4,7 @@ A voice-friendly shopping assistant prototype that turns a typed request into a 
 
 ## Current baseline
 
-Implemented: deterministic SauceDemo browser workflow, FastAPI task API with task state and SSE events, React request/results/timeline/cart interface, screenshot preview, cancellation, and focused pytest coverage. Text requests are supported. Voice transcription and OpenAI Computer Use remain incomplete. The live SauceDemo browser test is opt-in.
+Implemented: deterministic SauceDemo browser workflow, FastAPI task API with task state and SSE events, React conversation interface with a floating text/voice composer, progress sidebar, fixed live browser preview, screenshot preview, cancellation, and focused pytest coverage. Text requests are supported. Voice transcription and OpenAI Computer Use remain incomplete. The live SauceDemo browser test is opt-in.
 
 ## Prerequisites
 
@@ -28,7 +28,7 @@ The configured SauceDemo demo account defaults to `standard_user` / `secret_sauc
 Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`.
 Start the UI from `vocapilot/frontend` with `npm run dev` and open the Vite URL it prints.
 
-Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The screenshot preview is an image of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
+Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The interface presents the request and assistant response as a conversation, streams task progress in the left sidebar, and keeps the live browser screenshot panel fixed alongside it. The composer remains at the bottom of the conversation pane as earlier messages scroll above. The screenshot preview is an image of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
 
 ## Checks
 
