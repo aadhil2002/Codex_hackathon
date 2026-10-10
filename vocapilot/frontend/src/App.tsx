@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Globe2, Headphones, LoaderCircle, LockKeyhole, Mic, MicOff, PackageCheck, Send, ShoppingBag, Square, UserRound, Volume2, X } from 'lucide-react'
-import { cancelTask, createShoppingTask, getTask, selectProduct, selectProductOptions, sendChat, subscribeToTask, synthesizeSpeech, transcribeAudio } from './services/api'
+import { cancelTask, createShoppingTask, getCartSummary, getTask, selectProduct, selectProductOptions, sendChat, subscribeToTask, synthesizeSpeech, transcribeAudio } from './services/api'
 import type { Task } from './types'
 
 const terminal = new Set(['completed', 'failed', 'cancelled', 'inconclusive'])
@@ -83,6 +83,26 @@ export default function App() {
     try {
       setSending(true)
       const reply = await sendChat(nextMessages.slice(-12).map(({ role, content: text }) => ({ role, content: text })))
+      if (reply.store_query === 'cart') {
+        let responseText = 'I do not have a shopping session for this store yet. Start a product search here, then ask me to check the cart.'
+        if (!siteUrl.trim()) {
+          setProfileOpen(true)
+          throw new Error('Choose a store in your profile before I inspect its cart.')
+        }
+        const sameStore = task?.site_url && (() => {
+          try { return new URL(task.site_url).host.toLowerCase() === new URL(siteUrl).host.toLowerCase() }
+          catch { return false }
+        })()
+        if (task && sameStore) {
+          const summary = await getCartSummary(task.task_id)
+          const lines = summary.items.map(item => `• ${item.quantity > 1 ? `${item.quantity} × ` : ''}${item.name}`)
+          responseText = lines.length ? `${summary.message}\n\n${lines.join('\n')}` : summary.message
+        }
+        setMessages(current => [...current, { id: Date.now() + 1, role: 'assistant', content: responseText }])
+        setBusy(false)
+        setSending(false)
+        return
+      }
       if (reply.shopping_intent && !siteUrl.trim()) {
         setProfileOpen(true)
         throw new Error('Add the store website in your profile before starting this shopping request.')

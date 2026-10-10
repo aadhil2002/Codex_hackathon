@@ -4,6 +4,8 @@ Use this file to record actual Codex assistance. Summaries are sufficient; omit 
 
 ## Event build log
 
+| 2026-10-11T03:32:54+05:30 | Codex | Add catalog browse and cart status questions | Added natural-language routing for all-products browsing and current-cart questions, server-side cart row/quantity inspection with a clearly historical fallback, frontend display, and README/submission guidance. | Pending human review | Frontend production build, Python bytecode compilation, and `git diff --check` passed. No live store check was run. |
+
 | 2026-10-11T03:11:24+05:30 | Codex | Fix OpenAI connectivity after moving backend to visible terminal | Diagnosed a sandbox outbound-connection error, then identified an inherited `OPENAI_API_KEY` overriding the backend `.env` in the visible launcher. Restarted backend with inherited OpenAI key variables cleared, kept frontend visible, and documented PowerShell cleanup commands. | Pending human review | Backend health and frontend returned HTTP 200; a harmless live chat request returned HTTP 200. No key value was displayed. |
 
 | 2026-10-11T03:06:07+05:30 | Codex | Restore product selection and leave checkout manual | Tightened natural-language product matching guidance, made the current task's product selector explicit and resilient to task-history timing, and changed the verified-cart workflow to leave the separate browser on the cart for the shopper to proceed manually. Updated README and submission behavior. | Pending human review | Frontend production build, backend bytecode compilation, and `git diff --check` passed. Backend restarted visibly at `http://127.0.0.1:8000`. No new live store run was performed. |

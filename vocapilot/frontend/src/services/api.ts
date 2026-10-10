@@ -4,7 +4,8 @@ const API = 'http://127.0.0.1:8000/api'
 
 export type ChatLine = { role: 'user' | 'assistant'; content: string }
 export type SiteProfile = { url: string; email: string; password: string }
-export type ChatReply = { message: string; task?: Task | null; shopping_intent?: Record<string, unknown> | null }
+export type ChatReply = { message: string; task?: Task | null; shopping_intent?: Record<string, unknown> | null; store_query?: 'cart' | null }
+export type CartSummary = { item_count: number | null; items: Array<{ name: string; quantity: number }>; is_current: boolean; message: string }
 
 export async function sendChat(messages: ChatLine[]): Promise<ChatReply> {
   const response = await fetch(`${API}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages }) })
@@ -65,6 +66,13 @@ export async function getTask(id: string): Promise<Task> {
   const response = await fetch(`${API}/tasks/${id}`)
   if (!response.ok) throw new Error('Could not read task status.')
   return response.json()
+}
+
+export async function getCartSummary(taskId: string): Promise<CartSummary> {
+  const response = await fetch(`${API}/tasks/${taskId}/cart`)
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.detail ?? 'Could not inspect the store cart.')
+  return data
 }
 
 export async function cancelTask(id: string): Promise<void> {

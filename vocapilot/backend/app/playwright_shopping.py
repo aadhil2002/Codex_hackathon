@@ -17,7 +17,7 @@ if workspace_browser_cache.is_dir():
 from playwright.async_api import async_playwright
 
 from app.openai_service import choose_products
-from app.schemas import Product, TaskResult, TaskView
+from app.schemas import CartItem, CartSummary, Product, TaskResult, TaskView
 from app.task_store import store
 
 
@@ -68,6 +68,50 @@ async def _read_products(page) -> list[dict]:
       }
       return found.slice(0, 60);
     }""")
+
+
+async def summarize_cart(task_id: str) -> CartSummary:
+    task = store.tasks[task_id]
+    session = store.sessions.get(task_id)
+    if session:
+        page = session["page"]
+        try:
+            result = await page.evaluate(r"""() => {
+              const visible = el => { const r = el.getBoundingClientRect(), s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+              const selectors = 'tbody tr,[class*="cart-item" i],[class*="cart_item" i],[data-testid*="cart-item" i],[data-testid*="cart_item" i]';
+              const rows = [...document.querySelectorAll(selectors)].filter(visible);
+              const entries = [], seen = new Set();
+              for (const row of rows) {
+                const nameNode = row.querySelector('.inventory_item_name,.cart_description a,[class*="product-name" i],[class*="product_name" i],[class*="product-title" i],[class*="product_title" i],td:nth-child(2) a,h2,h3,h4,a[href*="product"]');
+                const name = (nameNode?.innerText || nameNode?.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
+                if (!name || name.length > 180 || seen.has(name.toLowerCase())) continue;
+                seen.add(name.toLowerCase());
+                const quantityNode = row.querySelector('input[type="number"],input[name*="qty" i],input[name*="quantity" i],select[name*="qty" i],select[name*="quantity" i],[class*="cart_quantity" i],[class*="quantity" i],[class*="qty" i]');
+                const quantityText = quantityNode?.value || quantityNode?.innerText || row.querySelector('td:nth-child(3)')?.innerText || '';
+                const parsedQuantity = Number(String(quantityText).match(/\d+/)?.[0]);
+                entries.push({ name, quantity: Number.isInteger(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1 });
+              }
+              const body = (document.body?.innerText || '').toLowerCase();
+              return { entries, empty: /(?:your\s+)?cart\s+(?:is\s+)?empty|no\s+items\s+in\s+(?:your\s+)?cart/.test(body) };
+            }""")
+            if result["entries"]:
+                items = [CartItem(**item) for item in result["entries"]]
+                total = sum(item.quantity for item in items)
+                return CartSummary(item_count=total, items=items, is_current=True,
+                                   message=f"The live cart has {total} item{'s' if total != 1 else ''} across {len(items)} product{'s' if len(items) != 1 else ''}.")
+            if result["empty"]:
+                return CartSummary(item_count=0, items=[], is_current=True, message="The live cart is empty.")
+        except Exception:
+            pass
+
+    verified = task.result and task.result.verification_status == "verified" and task.result.selected_product
+    if verified:
+        count = task.result.quantity or 1
+        item = CartItem(name=task.result.selected_product.name, quantity=count)
+        return CartSummary(item_count=count, items=[item], is_current=False,
+                           message=f"I can’t inspect the live cart right now. The last VocaPilot-verified cart had {count} {item.name}; that may not reflect its current contents.")
+    return CartSummary(item_count=None, items=[], is_current=False,
+                       message="I can’t inspect a current cart yet. Add a product through VocaPilot first, then ask me to check the cart.")
 
 
 async def _login_if_needed(page, email: str, password: str) -> None:
@@ -425,13 +469,16 @@ async def _run_shopping_task(task_id: str) -> None:
         candidates = [product for product in observed if max_price is None or product.price_value <= max_price]
         if not candidates:
             raise ValueError("No displayed product is within the requested budget.")
-        workflow_stage = "matching the requested category"
-        matching = await choose_products(
-            f"{task.input_text}\nProduct intent: {intent['requested_product']}",
-            [{"name": product.name, "description": product.description, "displayed_price": product.displayed_price, "price_value": product.price_value} for product in candidates],
-        )
-        indices = matching.get("matching_indices", [])
-        matches = [candidates[index] for index in indices if isinstance(index, int) and 0 <= index < len(candidates)]
+        if intent.get("browse_all"):
+            matches = candidates
+        else:
+            workflow_stage = "matching the requested category"
+            matching = await choose_products(
+                f"{task.input_text}\nProduct intent: {intent['requested_product']}",
+                [{"name": product.name, "description": product.description, "displayed_price": product.displayed_price, "price_value": product.price_value} for product in candidates],
+            )
+            indices = matching.get("matching_indices", [])
+            matches = [candidates[index] for index in indices if isinstance(index, int) and 0 <= index < len(candidates)]
         if not matches:
             raise ValueError("I couldn't find products in this store that match the requested category and budget.")
         task.products = matches
@@ -439,7 +486,8 @@ async def _run_shopping_task(task_id: str) -> None:
         store.sessions[task_id] = {"playwright": playwright, "browser": browser, "context": context, "page": page, "origin": origin}
         keep_session = True
         task.status = "awaiting_selection"
-        store.emit(task_id, "products_compared", f"Found {len(matches)} products in your requested category within budget.", {"matching_names": [product.name for product in matches]})
+        description = "visible products" if intent.get("browse_all") else "products in your requested category"
+        store.emit(task_id, "products_compared", f"Found {len(matches)} {description} within budget.", {"matching_names": [product.name for product in matches]})
         store.emit(task_id, "awaiting_selection", f"I found {len(matches)} options. Choose one to see its available size and color choices.", {"products": [product.model_dump() for product in matches]})
         asyncio.create_task(_expire_session(task_id))
     except asyncio.CancelledError:

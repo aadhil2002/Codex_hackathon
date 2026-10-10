@@ -35,6 +35,19 @@ class ChatResponse(BaseModel):
     message: str
     task: "TaskView | None" = None
     shopping_intent: dict | None = None
+    store_query: Literal["cart"] | None = None
+
+
+class CartItem(BaseModel):
+    name: str
+    quantity: int = 1
+
+
+class CartSummary(BaseModel):
+    item_count: int | None = None
+    items: list[CartItem] = Field(default_factory=list)
+    is_current: bool = False
+    message: str
 
 
 class TranscriptionResponse(BaseModel):

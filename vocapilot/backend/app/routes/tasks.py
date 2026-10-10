@@ -6,8 +6,8 @@ from fastapi.responses import Response, StreamingResponse
 from openai import APIConnectionError, AuthenticationError, NotFoundError, OpenAIError, PermissionDeniedError, RateLimitError
 
 from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
-from app.playwright_shopping import allowed_store_url, cancel_shopping_task, choose_product_options, run_shopping_task, select_product
-from app.schemas import ChatRequest, ChatResponse, ProductOptions, ProductSelection, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
+from app.playwright_shopping import allowed_store_url, cancel_shopping_task, choose_product_options, run_shopping_task, select_product, summarize_cart
+from app.schemas import CartSummary, ChatRequest, ChatResponse, ProductOptions, ProductSelection, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
 from app.task_store import store
 
 router = APIRouter()
@@ -56,17 +56,20 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except OpenAIError as exc:
         raise _openai_http_error("chat request", exc) from exc
 
-    if turn["action"] != "shop":
+    if turn["action"] == "cart":
+        return ChatResponse(message="I’ll check the store cart for its current items.", store_query="cart")
+    if turn["action"] not in {"shop", "browse"}:
         return ChatResponse(message=turn["message"])
     product_query = (turn.get("product_query") or "").strip()
-    if not product_query:
+    if turn["action"] == "shop" and not product_query:
         return ChatResponse(message="What kind of product would you like me to look for?")
 
     user_text = request.messages[-1].content
     intent = {
         "request": user_text,
-        "requested_product": product_query,
+        "requested_product": product_query or "all available products",
         "max_price": turn.get("max_price"),
+        "browse_all": turn["action"] == "browse",
         "quantity": 1,
         "checkout_allowed": False,
     }
@@ -124,6 +127,17 @@ async def get_task(task_id: str) -> TaskView:
     if not task:
         raise HTTPException(status_code=404, detail="Task not found.")
     return task
+
+
+@router.get("/tasks/{task_id}/cart", response_model=CartSummary)
+async def get_cart_summary(task_id: str) -> CartSummary:
+    task = store.tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    try:
+        return await summarize_cart(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/tasks/{task_id}/select", response_model=TaskView)

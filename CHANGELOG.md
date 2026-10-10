@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T03:32:54+05:30 - Answer catalog and cart questions
+
+- Changed: Added chat routing for general catalog browsing and cart-content questions. A browse request displays all in-budget listings on the selected page in the existing product chooser. A cart request inspects visible cart rows in the active browser session and reports quantities and product names; when the browser session is gone, it labels the last verified item as historical. Updated API schemas/routes, Playwright cart reading, frontend response handling, README, and submission notes.
+- Why: Let shoppers ask what the selected store currently offers and, when inspectable, get the number and names of items in their cart.
+- Validation: `npm run build`, backend `python -m compileall -q app`, and `git diff --check` passed. No live store test was run for catalog/cart Q&A.
+- Limitations: Catalog browsing reads up to 60 visible listings on the current page. Live cart parsing depends on common cart-row markup and is best-effort; closed browser sessions only allow a historical last-verified item report.
+
 ## 2026-10-11T03:11:24+05:30 - Run backend outside sandbox with the intended API key
 
 - Changed: Restarted the backend in a visible, network-enabled PowerShell window after clearing inherited `OPENAI_API_KEY` and `OPEN_API_KEY` variables so `python-dotenv` loads the workspace backend `.env`. Left the frontend running in its visible PowerShell window. Documented the environment cleanup commands in README.

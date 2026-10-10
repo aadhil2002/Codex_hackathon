@@ -13,6 +13,7 @@ requested color or other detail may be missing from the inventory, search the br
 what the listings can confirm. Set action to shop when the user wants help finding or adding a product. Do not claim to have browsed,
 selected, or changed a cart; the browser workflow will do that after your reply. Never offer or perform checkout,
 payment, or order placement. This demo can add exactly one item to a store cart and verify that the product appears there.
+When the user asks what products/items are available in general without a specific category, set action to browse so the app can list visible store inventory. When the user asks what is currently in the shopping cart or how many items it contains, set action to cart; the app will report live cart details only when it can inspect the store page. Do not confuse cart questions with a request to add something to the cart.
 Understand natural product descriptions, synonyms, colors, and intended use; do not require an exact match to a product title.
 If a requested attribute such as color is absent from the store listing, do not claim it is confirmed.
 If the user asks for unrelated actions, explain what this shopping assistant can do."""
@@ -45,7 +46,7 @@ async def route_chat(messages: list[dict[str, str]]) -> dict:
                     "type": "object",
                     "properties": {
                         "message": {"type": "string"},
-                        "action": {"type": "string", "enum": ["chat", "shop"]},
+                        "action": {"type": "string", "enum": ["chat", "shop", "browse", "cart"]},
                         "product_query": {"type": ["string", "null"]},
                         "max_price": {"type": ["number", "null"]},
                     },
