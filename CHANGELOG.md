@@ -15,6 +15,13 @@ No project implementation has been recorded yet. Replace this sentence with entr
 - Limitations: <known issues or "None identified in these checks">
 ```
 
+## 2026-10-10T22:38:46+05:30 — Add VocaPilot implementation plan
+
+- Changed: Added `implementation_plan.md` with the supplied VocaPilot Shopping baseline specification and implementation sequence; updated `AI_USAGE.md`.
+- Why: Keep the requested project brief and its staged build requirements in the repository for implementation.
+- Validation: Confirmed the copied plan is present and checked repository diff whitespace with `git diff --check`.
+- Limitations: The plan documents intended work; no application implementation or behavior has been verified.
+
 ## Template setup — 10 October 2026
 
 - Changed: Added the event README, rules, agent guide, change log, AI usage record, submission checklist, Git ignore rules, and pull request checklist.
