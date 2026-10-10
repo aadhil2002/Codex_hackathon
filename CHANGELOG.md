@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-10T22:51:54+05:30 — Ignore TypeScript build metadata
+
+- Changed: Added a `.gitignore` rule for `*.tsbuildinfo`.
+- Why: The TypeScript project build writes incremental metadata into the frontend folder; keep that generated state out of source control.
+- Validation: Confirmed the production build had generated the untracked file and verified the ignore rule with Git.
+- Limitations: None identified for this ignore rule.
+
 ## 2026-10-10T22:48:04+05:30 — Add VocaPilot deterministic shopping baseline
 
 - Changed: Added a React + TypeScript + Vite shopping interface; FastAPI task endpoints, in-memory task state and SSE; fixed SauceDemo origin allowlist; actual inventory and cart DOM extraction; explicit cart verification; screenshots; cancellation and a 90-second task limit; starter unit and opt-in live-site tests. Updated README, ignore rules, and submission description.
