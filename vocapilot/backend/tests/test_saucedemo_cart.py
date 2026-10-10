@@ -1,6 +1,8 @@
 import os
 
 import pytest
+
+pytest.importorskip("playwright.async_api")
 from playwright.async_api import async_playwright
 
 from app.playwright_shopping import allowed_store_url

@@ -14,41 +14,61 @@ def test_chat_uses_model_response(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Hello there"}]})
     assert response.status_code == 200
-    assert response.json() == {"message": "Hi! What are you shopping for?", "task": None}
+    assert response.json() == {"message": "Hi! What are you shopping for?", "task": None, "shopping_intent": None}
 
 
-def test_chat_routes_a_shopping_request_to_saucedemo(monkeypatch):
+def test_vite_nondefault_local_port_can_call_api():
+    with TestClient(app) as client:
+        response = client.options("/api/chat", headers={
+            "Origin": "http://127.0.0.1:5174",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        })
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5174"
+
+
+def test_chat_returns_shopping_intent_for_frontend_task_creation(monkeypatch):
     async def fake_route_chat(messages):
-        return {"message": "I’ll check the available backpacks for you.", "action": "shop",
+        return {"message": "I’ll list the available backpacks for you. Your cart will stay unchanged.", "action": "browse",
                 "product_query": "waterproof backpack", "max_price": 50}
 
-    async def fake_run_task(task_id):
-        return None
-
     monkeypatch.setattr("app.routes.tasks.route_chat", fake_route_chat)
-    monkeypatch.setattr("app.routes.tasks.run_shopping_task", fake_run_task)
     with TestClient(app) as client:
         response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Find a waterproof backpack under $50"}]})
     assert response.status_code == 200
     data = response.json()
-    assert data["task"]["intent"]["requested_product"] == "waterproof backpack"
-    assert data["task"]["intent"]["max_price"] == 50
+    assert data["task"] is None
+    assert data["shopping_intent"]["requested_product"] == "waterproof backpack"
+    assert data["shopping_intent"]["mode"] == "browse"
+    assert data["shopping_intent"]["max_price"] == 50
+    assert data["shopping_intent"]["quantity"] == 1
+    assert data["shopping_intent"]["checkout_allowed"] is False
 
 
 def test_chat_accepts_single_character_shop_request(monkeypatch):
     async def fake_route_chat(messages):
         assert messages[-1]["content"] == "x"
-        return {"message": "I’ll check that for you.", "action": "shop", "product_query": "backpack", "max_price": None}
-
-    async def fake_run_task(task_id):
-        return None
+        return {"message": "I’ll check that for you.", "action": "browse", "product_query": "backpack", "max_price": None}
 
     monkeypatch.setattr("app.routes.tasks.route_chat", fake_route_chat)
-    monkeypatch.setattr("app.routes.tasks.run_shopping_task", fake_run_task)
     with TestClient(app) as client:
         response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "x"}]})
     assert response.status_code == 200
-    assert response.json()["task"]["input_text"] == "x"
+    assert response.json()["shopping_intent"]["request"] == "x"
+    assert response.json()["shopping_intent"]["requested_product"] == "backpack"
+
+
+def test_chat_marks_explicit_add_request_as_cart_action(monkeypatch):
+    async def fake_route_chat(_messages):
+        return {"message": "I’ll add one backpack to the cart.", "action": "add_to_cart",
+                "product_query": "backpack", "max_price": None}
+
+    monkeypatch.setattr("app.routes.tasks.route_chat", fake_route_chat)
+    with TestClient(app) as client:
+        response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Add a backpack to my cart"}]})
+    assert response.status_code == 200
+    assert response.json()["shopping_intent"]["mode"] == "add_to_cart"
 
 
 def test_voice_transcription_returns_text(monkeypatch):

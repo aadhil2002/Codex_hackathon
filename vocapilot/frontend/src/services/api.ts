@@ -3,7 +3,7 @@ import type { Task } from '../types'
 const API = 'http://127.0.0.1:8000/api'
 
 export type ChatLine = { role: 'user' | 'assistant'; content: string }
-export type SiteProfile = { url: string; email: string; password: string }
+export type SiteProfile = { site_name?: string; url: string; email: string; password: string }
 export type ChatReply = { message: string; task?: Task | null; shopping_intent?: Record<string, unknown> | null }
 
 export async function sendChat(messages: ChatLine[]): Promise<ChatReply> {
@@ -55,7 +55,7 @@ export async function cancelTask(id: string): Promise<void> {
 export function subscribeToTask(id: string, onEvent: () => void): EventSource {
   const source = new EventSource(`${API}/tasks/${id}/events`)
   source.onmessage = onEvent
-  for (const type of ['task_created', 'task_started', 'intent_parsed', 'browser_navigated', 'page_updated', 'products_observed', 'products_compared', 'product_selected', 'cart_updated', 'verification_started', 'verification_completed', 'task_completed', 'task_failed', 'task_cancelled', 'error']) {
+  for (const type of ['task_created', 'task_started', 'computer_actions', 'products_listed', 'listing_inconclusive', 'intent_parsed', 'browser_navigated', 'page_updated', 'products_observed', 'products_compared', 'product_selected', 'cart_updated', 'verification_started', 'verification_completed', 'task_completed', 'task_failed', 'task_cancelled', 'error']) {
     source.addEventListener(type, onEvent)
   }
   return source

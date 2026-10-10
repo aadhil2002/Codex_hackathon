@@ -4,6 +4,34 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T04:58:12+05:30 - Restructure workspace for live store browsing
+
+- Changed: Added a first-run store name and URL setup, a one-sixth chat pane with a five-sixths embedded live store pane, browse-only product results that explicitly leave the cart unchanged, and add-to-cart routing only for explicit requests. Computer Use now acts in the visible store panel, returns structured product listings for browse tasks, and limits pointer coordinates to that panel. Added local Vite-port CORS support and updated setup documentation. Kept the old `App.tsx`, `style.css`, and Playwright implementation files in place.
+- Why: Make store selection the first step, keep browsing separate from cart changes, and let shoppers see the live store beside chat.
+- Validation: Backend suite: 27 passed, 1 legacy Playwright module skipped; frontend production build passed; `git diff --check` passed. The local workspace visually loaded DemoBlaze in the embedded panel, with the requested chat/store split.
+- Limitations: Live model-driven computer actions were not run. Stores that block iframe embedding cannot be shown in the workspace; actions still require a visible, maximized desktop browser and macOS screen and accessibility permissions.
+
+## 2026-10-11T04:28:02+05:30 - Keep Computer Use tab switching in the browser
+
+- Changed: Translated Meta/Cmd/Command+Tab into Ctrl+Tab for browser tab cycling, and added tests for the mapping. Updated `vocapilot/backend/app/computer_use_shopping.py`, `vocapilot/backend/tests/test_computer_use.py`, `README.md`, and `AI_USAGE.md`.
+- Why: A live DemoBlaze task requested Meta+Tab, which would switch macOS apps if passed through directly and was rejected by the keyboard safety allowlist.
+- Validation: Backend suite: 24 passed, 1 legacy Playwright module skipped; `git diff --check` passed. The live DemoBlaze task was not rerun.
+- Limitations: The model's intent for the shortcut is inferred as browser tab cycling; the app keeps control within browser tabs by translating it to Ctrl+Tab.
+
+## 2026-10-11T04:08:58+05:30 - Allow browser find shortcuts during Computer Use
+
+- Changed: Allowed Ctrl/Command+F for browser find and included the rejected key names in unsafe keyboard shortcut errors. Added coverage for Ctrl/Command find shortcuts and documented the shortcut boundary. Updated `vocapilot/backend/app/computer_use_shopping.py`, `vocapilot/backend/tests/test_computer_use.py`, `README.md`, and `AI_USAGE.md`.
+- Why: A live Demoblaze session stopped when the model requested a find shortcut that the desktop action allowlist rejected without naming the key.
+- Validation: Backend suite: 21 passed, 1 legacy Playwright module skipped; `git diff --check` passed. Live site behavior was not re-run.
+- Limitations: The actual rejected key from the earlier task was not logged, so this change supports the common browser find shortcut and improves diagnostics for any other unsupported shortcut.
+
+## 2026-10-11T02:39:02+05:30 - Replace Playwright shopping with OpenAI Computer Use
+
+- Changed: Replaced the active Playwright shopping route with a Responses API `computer` tool loop backed by local PyAutoGUI screenshots and input; added bounded action/turn/time handling, screenshot coordinate scaling, non-blocking local input execution, local credential marker substitution, model-reported cart verification requiring quantity one and an actual input action, budget validation, and action validation. Moved public HTTPS URL checks to `store_security.py`. Preserved the old Playwright workflow and SauceDemo test files; the legacy test module skips when Playwright is not installed. Added mocked Computer Use/action-handler tests, updated README and submission details, and added the Computer Use model setting to `.env.example`. Updated chat route tests to match the existing frontend contract that receives `shopping_intent` before it creates a task.
+- Why: Use screenshot-based Computer Use for store navigation instead of DOM-selected Playwright actions.
+- Validation: Backend tests: 18 passed, 1 legacy Playwright module skipped, with one Starlette/httpx deprecation warning; `compileall` passed; `git diff --check` passed. Frontend build was attempted but could not run because `tsc` is missing and dependencies are not installed. The installed OpenAI SDK signature supports Responses API `tools`, `input`, `previous_response_id`, `max_output_tokens`, and structured `text` parameters.
+- Limitations: No live API key/model entitlement or interactive browser session was available, so the end-to-end API/browser path was not run. Screenshots cover the desktop and are sent to OpenAI; the initial destination is checked as public HTTPS, but same-origin navigation is not technically enforced after launch. Visual verification is model-interpreted, and the PyAutoGUI text adapter currently accepts ASCII only.
+
 ## 2026-10-11T01:23:55+05:30 - Remove browser preview and generalize store setup
 
 - Changed: Removed the embedded live-browser preview, enlarged chat and progress text, and made the conversation follow new messages and task updates. Added an account-icon profile dialog for a store URL and optional email/username and password, held in frontend memory. Chat routing happens first without credentials; only a shopping task request sends profile values to the backend. The API keeps sign-in fields separate from model prompts and public task data, and clears them when a task finishes. Replaced the SauceDemo-only navigation, login, inventory, and cart selectors with public HTTPS validation and semantic page discovery. Model matching now returns relevant category alternatives. Removed screenshots from task output and updated the public-HTTPS URL validation fixture. Updated README and AI usage notes.

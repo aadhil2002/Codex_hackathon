@@ -6,8 +6,9 @@ from fastapi.responses import Response, StreamingResponse
 from openai import AuthenticationError, OpenAIError
 
 from app.openai_service import OpenAIConfigurationError, route_chat, synthesize_speech, transcribe_audio
-from app.playwright_shopping import allowed_store_url, run_shopping_task
+from app.computer_use_shopping import run_shopping_task
 from app.schemas import ChatRequest, ChatResponse, SpeechRequest, TaskCreate, TaskView, TranscriptionResponse
+from app.store_security import allowed_store_url
 from app.task_store import store
 
 router = APIRouter()
@@ -36,7 +37,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except OpenAIError as exc:
         raise _openai_http_error("chat request", exc) from exc
 
-    if turn["action"] != "shop":
+    if turn["action"] == "chat":
         return ChatResponse(message=turn["message"])
     product_query = (turn.get("product_query") or "").strip()
     if not product_query:
@@ -47,6 +48,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         "request": user_text,
         "requested_product": product_query,
         "max_price": turn.get("max_price"),
+        "mode": "add_to_cart" if turn["action"] == "add_to_cart" else "browse",
         "quantity": 1,
         "checkout_allowed": False,
     }
@@ -85,7 +87,7 @@ async def speech(request: SpeechRequest) -> Response:
 @router.post("/tasks", response_model=TaskView, status_code=202)
 async def create_task(request: TaskCreate) -> TaskView:
     if request.site is None:
-        raise HTTPException(status_code=422, detail="Open your profile and add the store URL and sign-in details before shopping.")
+        raise HTTPException(status_code=422, detail="Set the store name and website before starting a store task.")
     target = str(request.site.url).rstrip("/")
     parsed_target = urlparse(target)
     if not allowed_store_url(target) or parsed_target.query or parsed_target.fragment:

@@ -7,11 +7,11 @@ from openai import AsyncOpenAI
 
 SYSTEM_INSTRUCTIONS = """You are VocaPilot, a friendly shopping assistant for the store selected by the user.
 Answer ordinary questions naturally and briefly. Ask a follow-up only when the product type or task is genuinely unclear.
-When a product type is clear, do not delay a live search for optional preferences such as fit, style, or brand. If a
-requested color or other detail may be missing from the inventory, search the broader product category and explain
-what the listings can confirm. Set action to shop when the user wants help finding or adding a product. Do not claim to have browsed,
-selected, or changed a cart; the browser workflow will do that after your reply. Never offer or perform checkout,
-payment, or order placement. This demo can add exactly one item to a store cart and verify that the product appears there.
+When the user asks to list, show, search, compare, or find products, set action to browse. Browse requests must never add
+anything to a cart. Set action to add_to_cart only when the user explicitly asks to add a product to their cart. If the
+product is not clear, ask a follow-up before starting computer actions. Do not claim to have browsed or changed a cart;
+the computer workflow does that after your reply. Never offer or perform checkout, payment, or order placement. A cart
+task adds exactly one item and verifies it; it is available only after an explicit add-to-cart request.
 Understand natural product descriptions, synonyms, colors, and intended use; do not require an exact match to a product title.
 If a requested attribute such as color is absent from the store listing, do not claim it is confirmed.
 If the user asks for unrelated actions, explain what this shopping assistant can do."""
@@ -44,7 +44,7 @@ async def route_chat(messages: list[dict[str, str]]) -> dict:
                     "type": "object",
                     "properties": {
                         "message": {"type": "string"},
-                        "action": {"type": "string", "enum": ["chat", "shop"]},
+                        "action": {"type": "string", "enum": ["chat", "browse", "add_to_cart"]},
                         "product_query": {"type": ["string", "null"]},
                         "max_price": {"type": ["number", "null"]},
                     },

@@ -16,11 +16,12 @@ class TaskStore:
     def create(self, request: TaskCreate) -> TaskView:
         task_id = str(uuid4())
         task = TaskView(task_id=task_id, status="queued", input_text=request.input_text,
-                        site_url=str(request.site.url) if request.site else None, intent=request.intent)
+                        site_url=str(request.site.url) if request.site else None,
+                        site_name=request.site.site_name if request.site else None, intent=request.intent)
         self.tasks[task_id] = task
         self.cancel_flags[task_id] = asyncio.Event()
         self.changed[task_id] = asyncio.Condition()
-        self.emit(task_id, "task_created", "Shopping request received.")
+        self.emit(task_id, "task_created", "Store request received.")
         return task
 
     def emit(self, task_id: str, event_type: str, message: str, data: dict | None = None) -> None:

@@ -10,6 +10,7 @@ TaskStatus = Literal["queued", "running", "completed", "failed", "cancelled", "i
 
 
 class SiteProfile(BaseModel):
+    site_name: str = Field(min_length=1, max_length=100)
     url: HttpUrl
     email: str = Field(default="", max_length=320)
     password: SecretStr = SecretStr("")
@@ -48,7 +49,7 @@ class SpeechRequest(BaseModel):
 class Product(BaseModel):
     name: str
     displayed_price: str
-    price_value: float
+    price_value: float | None = None
     description: str = ""
     image_url: str | None = None
 
@@ -76,6 +77,7 @@ class TaskView(BaseModel):
     status: TaskStatus
     input_text: str
     site_url: str | None = None
+    site_name: str | None = None
     intent: dict | None = None
     products: list[Product] = Field(default_factory=list)
     suggested_products: list[Product] = Field(default_factory=list)
