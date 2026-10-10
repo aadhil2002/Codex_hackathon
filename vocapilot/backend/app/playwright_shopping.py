@@ -77,6 +77,7 @@ async def _run_shopping_task(task_id: str) -> None:
             await page.wait_for_url("**/inventory.html", timeout=15000)
             if not allowed_store_url(page.url):
                 raise ValueError("The store redirected outside the approved origin; stopped.")
+            await _capture(task_id, page)
             _check_cancel(task_id)
 
             product_cards = page.locator(".inventory_item")
@@ -135,6 +136,7 @@ async def _run_shopping_task(task_id: str) -> None:
             await page.wait_for_url("**/cart.html", timeout=10000)
             if not allowed_store_url(page.url):
                 raise ValueError("The cart navigated outside the approved origin; stopped.")
+            await page.locator(".cart_item").first.wait_for(state="visible", timeout=8000)
             await _capture(task_id, page)
             cart_items = page.locator(".cart_item")
             cart_lines = []

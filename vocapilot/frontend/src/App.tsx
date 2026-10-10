@@ -12,9 +12,11 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [recording, setRecording] = useState(false)
   const [error, setError] = useState('')
+  const [displayScreenshot, setDisplayScreenshot] = useState<string | null>(null)
   const recorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
   const chatEnd = useRef<HTMLDivElement>(null)
+  const timelineRef = useRef<HTMLOListElement>(null)
 
   async function refresh(id: string) {
     try {
@@ -32,6 +34,17 @@ export default function App() {
   }, [task?.task_id, task?.status])
 
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [task?.events?.length, task?.products?.length, task?.result])
+
+  useEffect(() => {
+    const last = timelineRef.current?.lastElementChild
+    last?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [task?.events?.length])
+
+  useEffect(() => {
+    const screenshot = task?.screenshot ?? null
+    const timer = window.setTimeout(() => setDisplayScreenshot(screenshot), screenshot ? 450 : 0)
+    return () => window.clearTimeout(timer)
+  }, [task?.screenshot])
 
   async function startTask() {
     setError('')
@@ -72,7 +85,7 @@ export default function App() {
       <section className="intro"><div><div className="eyebrow"><span className="spark">✳</span> YOUR PERSONAL SHOPPING ASSISTANT</div><h1>Shopping, <em>in conversation.</em></h1><p>Tell me what you need. I’ll compare what’s in the store and verify your cart.</p></div><div className="intro-note"><Headphones size={16}/><span>Speak naturally, or type your request</span></div></section>
       <section className="chat-layout">
         <aside className="progress-sidebar panel"><div className="side-heading"><span className="step-label">YOUR SESSION</span><span className="private-pill"><span/> Private</span></div><h2>Shopping progress</h2><p className="side-subtitle">A live view of each step.</p>
-          <ol className="timeline">{events.length === 0 ? <li className="timeline-placeholder"><span className="timeline-dot idle-dot"/><div><strong>Ready when you are</strong><p>Your shopping steps will appear here.</p></div></li> : events.map((event, i) => <li key={event.id} className="timeline-item"><span className={`timeline-dot ${i === events.length - 1 && busy ? 'current-dot' : 'done-dot'}`}>{i < events.length - 1 || !busy ? <Check size={10}/> : null}</span><div><strong>{event.message}</strong><time>{new Date(event.timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</time></div></li>)}</ol>
+          <ol className="timeline" ref={timelineRef}>{events.length === 0 ? <li className="timeline-placeholder"><span className="timeline-dot idle-dot"/><div><strong>Ready when you are</strong><p>Your shopping steps will appear here.</p></div></li> : events.map((event, i) => <li key={event.id} className="timeline-item"><span className={`timeline-dot ${i === events.length - 1 && busy ? 'current-dot' : 'done-dot'}`}>{i < events.length - 1 || !busy ? <Check size={10}/> : null}</span><div><strong>{event.message}</strong><time>{new Date(event.timestamp).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</time></div></li>)}</ol>
           <div className={`status-card ${busy ? 'is-busy' : ''}`}>{busy ? <LoaderCircle size={14}/> : <Check size={14}/>}<span>{busy ? 'Working on your request' : result?.verification_status === 'verified' ? 'Cart verified' : 'Checkout stays in your control'}</span></div>
         </aside>
         <section className="conversation" aria-label="Shopping conversation">
@@ -92,7 +105,7 @@ export default function App() {
           </div>
           <div className="composer-dock"><div className="composer"><textarea aria-label="Your shopping request" value={request} onChange={e => setRequest(e.target.value)} maxLength={1000} placeholder="Ask for an item, a budget, or a product…" disabled={busy}/><div className="composer-toolbar"><div className="composer-tools"><button className={`composer-icon mic-control ${recording ? 'recording' : ''}`} onClick={() => void toggleRecording()} title={recording ? 'Stop recording' : 'Record request'} aria-label={recording ? 'Stop recording' : 'Record request'}>{recording ? <MicOff size={17}/> : <Mic size={17}/>}</button><span className="composer-hint">{recording ? 'Listening…' : 'Voice or text'} <span>·</span> {request.length}/1,000</span></div>{busy ? <button className="send-button stop-button" onClick={() => void stopTask()}><Square size={13} fill="currentColor"/><span>Stop</span></button> : <button className="send-button" onClick={() => void startTask()} aria-label="Send request"><span>Find my item</span><Send size={15}/></button>}</div></div><p className="composer-footnote"><Check size={12}/> Your cart is verified before I report back <span>·</span> No checkout without you</p></div>
         </section>
-        <aside className="browser-sidebar"><div className="browser-sticky panel"><div className="panel-heading browser-heading"><div><span className="step-label">LIVE BROWSER</span><h2>Store preview</h2></div><span className={`live-pill ${task?.screenshot ? 'active' : ''}`}><i/>{task?.screenshot ? 'LIVE' : 'READY'}</span></div><div className="browser-frame"><div className="browser-chrome"><div className="window-dots"><b/><b/><b/></div><span className="url-bar"><span className="lock">▣</span> saucedemo.com</span><span className="chrome-menu">···</span></div>{task?.screenshot ? <img className="browser-image" src={task.screenshot} alt={`Screenshot of ${task.page_title ?? 'the actual SauceDemo browser session'}`}/> : <div className="browser-empty"><div className="store-illustration"><div className="sun-disc"/><div className="shelf shelf-one"><i/><i/><i/></div><div className="shelf shelf-two"><i/><i/><i/></div><span className="plant">✳</span></div><strong>Your store, in view</strong><span>Store activity appears here as I shop.</span></div>}</div><div className="browser-caption"><span><i/>{task?.page_title || 'Waiting for your request'}</span><span>LIVE PREVIEW</span></div><div className="browser-note"><CircleHelp size={13}/><span>This is a live screenshot preview of the shopping session.</span></div></div></aside>
+        <aside className="browser-sidebar"><div className="browser-sticky panel"><div className="panel-heading browser-heading"><div><span className="step-label">LIVE BROWSER</span><h2>Store preview</h2></div><span className={`live-pill ${displayScreenshot ? 'active' : ''}`}><i/>{displayScreenshot ? 'LIVE' : 'READY'}</span></div><div className="browser-frame"><div className="browser-chrome"><div className="window-dots"><b/><b/><b/></div><span className="url-bar"><span className="lock">▣</span> {task?.page_url ? new URL(task.page_url).hostname : 'saucedemo.com'}</span><span className="chrome-menu">···</span></div>{displayScreenshot ? <img key={displayScreenshot.slice(-80)} className="browser-image" src={displayScreenshot} alt={`Screenshot of ${task?.page_title ?? 'the actual SauceDemo browser session'}`}/> : <div className="browser-empty"><div className="store-illustration"><div className="sun-disc"/><div className="shelf shelf-one"><i/><i/><i/></div><div className="shelf shelf-two"><i/><i/><i/></div><span className="plant">✳</span></div><strong>Your store, in view</strong><span>Store activity appears here as I shop.</span></div>}</div><div className="browser-caption"><span><i/>{task?.page_title || 'Waiting for your request'}</span><span>LIVE SCREEN</span></div><div className="browser-note"><CircleHelp size={13}/><span>Actual browser screenshots update after each verified navigation step.</span></div></div></aside>
       </section>
       <footer><span>VocaPilot <span className="footer-sep">/</span> Demo store: SauceDemo</span><span><i/> Checkout is always in your control <span className="footer-sep">·</span> <a href="https://www.saucedemo.com" target="_blank" rel="noreferrer">About SauceDemo <ArrowUpRight size={10}/></a></span></footer>
     </div>

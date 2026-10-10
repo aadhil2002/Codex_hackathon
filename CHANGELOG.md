@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-10T23:52:06+05:30 — Fit workspace to viewport and smooth browser updates
+
+- Changed: Made the desktop workspace fill the viewport without main-page scrolling; the session timeline now has its own scrollbar and smoothly follows new events. Enlarged the fixed browser panel, delayed screenshot display slightly and added subtle transitions. The browser now captures the post-login inventory and waits for the rendered cart item before its final screenshot. Updated demo instructions.
+- Why: Keep chat, session progress, and the current store screen visible together while making updates easier to follow.
+- Validation: Frontend `npm run build` passed; backend `python -m pytest -q` passed (9 passed, 1 opt-in live test skipped); `git diff --check` passed.
+- Limitations: The preview remains a sequence of browser screenshots, not a live interactive video. Live SauceDemo access was not used for this change; the live browser test remains opt-in.
+
 ## 2026-10-10T23:40:03+05:30 — Rework shopping interface as a conversation
 
 - Changed: Replaced the multi-card dashboard with a chat-centered layout: task messages and product/cart results appear above a pinned horizontal text/mic composer, progress events live in a left sidebar, and the live browser preview stays in a sticky right panel. Updated responsive layouts and README UI/demo description.

@@ -28,7 +28,7 @@ The configured SauceDemo demo account defaults to `standard_user` / `secret_sauc
 Start the API from `vocapilot/backend` with `python -m uvicorn app.main:app --reload --port 8000`.
 Start the UI from `vocapilot/frontend` with `npm run dev` and open the Vite URL it prints.
 
-Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The interface presents the request and assistant response as a conversation, streams task progress in the left sidebar, and keeps the live browser screenshot panel fixed alongside it. The composer remains at the bottom of the conversation pane as earlier messages scroll above. The screenshot preview is an image of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
+Enter a request such as “Add one Sauce Labs Backpack to my cart and show me the verified cart contents. Do not check out.” The interface presents the request and assistant response as a conversation, streams task progress in a scrollable left sidebar, and keeps an enlarged browser screenshot panel fixed alongside it. The workspace fits the viewport; the conversation and progress feed scroll independently, and the composer remains at the bottom of the conversation pane. The screenshot preview updates after store login, item addition, and cart rendering. It shows images of the actual browser session, not an interactive browser. The app verifies the cart item and quantity from the rendered cart page and never submits checkout.
 
 ## Checks
 
