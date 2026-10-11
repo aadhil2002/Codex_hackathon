@@ -46,6 +46,37 @@ def test_computer_actions_reject_out_of_bounds_coordinates_and_unsafe_shortcuts(
         _execute_action({"type": "keypress", "keys": ["CTRL", "W"]}, "", "")
 
 
+def test_computer_scroll_distances_convert_to_bounded_wheel_steps(monkeypatch):
+    desktop = FakePyAutoGUI()
+    monkeypatch.setitem(sys.modules, "pyautogui", desktop)
+
+    _execute_action({"type": "scroll", "scroll_y": 600, "scroll_x": -250}, "", "")
+
+    assert desktop.calls == [
+        ("scroll", (-6,), {}),
+        ("hscroll", (-3,), {}),
+    ]
+
+
+@pytest.mark.parametrize("distance", [5000, -5000])
+def test_computer_scroll_caps_large_distances_to_safe_maximum(distance, monkeypatch):
+    desktop = FakePyAutoGUI()
+    monkeypatch.setitem(sys.modules, "pyautogui", desktop)
+
+    _execute_action({"type": "scroll", "scroll_y": distance}, "", "")
+
+    assert desktop.calls == [("scroll", (-10 if distance > 0 else 10,), {})]
+
+
+@pytest.mark.parametrize("distance", ["10", True, float("inf"), float("nan")])
+def test_computer_scroll_rejects_invalid_distances(distance, monkeypatch):
+    desktop = FakePyAutoGUI()
+    monkeypatch.setitem(sys.modules, "pyautogui", desktop)
+
+    with pytest.raises(ValueError, match="Scroll distance must be"):
+        _execute_action({"type": "scroll", "scroll_y": distance}, "", "")
+
+
 @pytest.mark.parametrize("keys", [["CTRL", "F"], ["CMD", "F"], ["COMMAND", "F"]])
 def test_computer_actions_allow_find_shortcuts(keys, monkeypatch):
     desktop = FakePyAutoGUI()

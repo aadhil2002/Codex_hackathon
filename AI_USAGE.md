@@ -4,6 +4,8 @@ Use this file to record actual Codex assistance. Summaries are sufficient; omit 
 
 ## Event build log
 
+| 2026-10-11T05:15:13+05:30 | Codex | Fix Computer Use page scrolling | Converted API scroll distances to local wheel steps, capped large finite requests at the safe per-action maximum, and rejected malformed or non-finite values; added regression tests for direction, capping, and invalid input. | Pending human review | Backend suite: 34 passed, 1 legacy Playwright module skipped; `git diff --check` passed. Live DemoBlaze automation has not been rerun. |
+
 | 2026-10-11T04:58:12+05:30 | Codex | Restructure VocaPilot for visible store browsing | Added store name/URL onboarding, a 1:5 chat/store split with embedded live store, distinct browse-only and explicit add-to-cart modes, product-list responses, store-panel coordinate bounds, and local dev-port CORS. Kept old source and Playwright files. | Pending human review | Backend suite: 27 passed, 1 legacy Playwright module skipped; frontend production build and `git diff --check` passed. Visually confirmed DemoBlaze in the embedded panel. No live model-driven store task was run. |
 
 | 2026-10-11T04:28:02+05:30 | Codex | Keep Computer Use tab switching in the browser | Mapped Meta/Cmd/Command+Tab to Ctrl+Tab and added tests to prevent macOS app switching during store automation. | Pending human review | Backend suite: 24 passed, 1 legacy Playwright module skipped; `git diff --check` passed. Live DemoBlaze workflow was not rerun. |

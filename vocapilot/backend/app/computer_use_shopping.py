@@ -4,6 +4,7 @@ import asyncio
 import base64
 import io
 import json
+import math
 import os
 import re
 from urllib.parse import urlparse
@@ -18,6 +19,8 @@ from app.task_store import store
 
 MAX_ACTIONS = 36
 MAX_TURNS = 24
+MAX_SCROLL_DISTANCE = 1000
+SCROLL_DISTANCE_PER_STEP = 100
 MAX_TEXT_LENGTH = 2000
 _desktop_lock = asyncio.Lock()
 _RESULT_SCHEMA = {
@@ -158,12 +161,18 @@ def _execute_action(action: dict, email: str, password: str, bounds: tuple[int, 
             pyautogui.moveTo(*point(x, y))
         delta_y = _get(action, "scroll_y", 0)
         delta_x = _get(action, "scroll_x", 0)
-        if not isinstance(delta_y, int) or not isinstance(delta_x, int) or abs(delta_y) > 10 or abs(delta_x) > 10:
-            raise ValueError("Scroll distance exceeds the per-action limit.")
+        if (not isinstance(delta_y, (int, float)) or isinstance(delta_y, bool)
+                or not isinstance(delta_x, (int, float)) or isinstance(delta_x, bool)
+                or not math.isfinite(delta_y) or not math.isfinite(delta_x)):
+            raise ValueError("Scroll distance must be a finite number.")
         if delta_y:
-            pyautogui.scroll(-delta_y)
+            bounded_y = min(abs(delta_y), MAX_SCROLL_DISTANCE)
+            steps_y = max(1, int(bounded_y / SCROLL_DISTANCE_PER_STEP + 0.5))
+            pyautogui.scroll(-steps_y if delta_y > 0 else steps_y)
         if delta_x:
-            pyautogui.hscroll(delta_x)
+            bounded_x = min(abs(delta_x), MAX_SCROLL_DISTANCE)
+            steps_x = max(1, int(bounded_x / SCROLL_DISTANCE_PER_STEP + 0.5))
+            pyautogui.hscroll(steps_x if delta_x > 0 else -steps_x)
     elif action_type == "drag":
         path = _get(action, "path")
         if not isinstance(path, list) or len(path) < 2:

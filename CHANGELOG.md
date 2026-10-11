@@ -4,6 +4,13 @@ Record each meaningful project change newest first, with an actual timestamp and
 
 ## Event build log
 
+## 2026-10-11T05:15:13+05:30 - Cap large Computer Use scroll requests
+
+- Changed: Convert API scroll distances into PyAutoGUI wheel steps, cap large finite requests to the safe per-action maximum, and reject malformed or non-finite values. Added regression tests for conversion, capping, and invalid values.
+- Why: A follow-up DemoBlaze attempt showed that rejecting requests above 1,000 distance units still stopped product listing. Capping lets the task continue with bounded movement.
+- Validation: Backend suite: 34 passed, 1 legacy Playwright module skipped; `git diff --check` passed.
+- Limitations: The scroll distance conversion is approximate because local wheel behavior varies by operating system and browser; live DemoBlaze automation has not yet been rerun.
+
 ## 2026-10-11T04:58:12+05:30 - Restructure workspace for live store browsing
 
 - Changed: Added a first-run store name and URL setup, a one-sixth chat pane with a five-sixths embedded live store pane, browse-only product results that explicitly leave the cart unchanged, and add-to-cart routing only for explicit requests. Computer Use now acts in the visible store panel, returns structured product listings for browse tasks, and limits pointer coordinates to that panel. Added local Vite-port CORS support and updated setup documentation. Kept the old `App.tsx`, `style.css`, and Playwright implementation files in place.
