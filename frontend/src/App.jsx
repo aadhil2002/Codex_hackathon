@@ -13,6 +13,24 @@ async function api(path, body = {}) {
 }
 
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+const VOICE_PAUSE_BEFORE_SEND_MS = 3000;
+const compareFields = [
+  ['Category', (product) => product.category],
+  ['Brand', (product) => product.brand],
+  ['SKU', (product) => product.sku],
+  ['Tags', (product) => Array.isArray(product.tags) ? product.tags.join(', ') : null],
+  ['Price', (product) => money(product.price)],
+  ['Discount', (product) => `${Number(product.discountPercentage || 0).toFixed(1)}%`],
+  ['Rating', (product) => `${Number(product.rating || 0).toFixed(1)} / 5`],
+  ['Review count', (product) => product.reviews?.length ?? null],
+  ['Availability', (product) => `${product.availabilityStatus || (product.stock > 0 ? 'In stock' : 'Sold out')} (${product.stock} units)`],
+  ['Minimum order', (product) => product.minimumOrderQuantity],
+  ['Weight', (product) => product.weight == null ? null : `${product.weight} g`],
+  ['Dimensions', (product) => product.dimensions && `${product.dimensions.width} x ${product.dimensions.height} x ${product.dimensions.depth} cm`],
+  ['Warranty', (product) => product.warrantyInformation],
+  ['Shipping', (product) => product.shippingInformation],
+  ['Returns', (product) => product.returnPolicy],
+];
 
 export default function App() {
   const [phase, setPhase] = useState('connecting');
@@ -27,13 +45,15 @@ export default function App() {
   const [category, setCategory] = useState('all');
   const [sort, setSort] = useState('featured');
   const [cartOpen, setCartOpen] = useState(false);
-  const [aiStatus, setAiStatus] = useState('missing_key');
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speakingMessage, setSpeakingMessage] = useState(null);
+  const [voiceText, setVoiceText] = useState('');
   const [error, setError] = useState('');
   const [details, setDetails] = useState({ firstName: '', lastName: '', postalCode: '' });
   const transcriptEnd = useRef(null);
   const voiceRef = useRef(null);
+  const speechRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -43,7 +63,14 @@ export default function App() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => transcriptEnd.current?.scrollIntoView({ behavior: 'smooth' }), [messages, busy]);
+  useEffect(() => {
+    const element = transcriptEnd.current;
+    if (element && typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, busy]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   function applyResult(data) {
     if (data.phase) setPhase(data.phase);
@@ -51,9 +78,11 @@ export default function App() {
     if (Array.isArray(data.cart)) setCart(data.cart);
     if (typeof data.cartCount === 'number') setCartCount(data.cartCount);
     if (typeof data.cartTotal === 'number') setCartTotal(data.cartTotal);
-    if (typeof data.aiStatus === 'string') setAiStatus(data.aiStatus);
     setChoices(data.choices || []);
-    if (data.message) setMessages((current) => [...current, { role: 'assistant', text: data.message, choices: data.choices || [] }]);
+    const displayMessage = typeof data.message === 'string'
+      ? data.message.replace(/^Welcome!\s+Browse the .*? catalog,/i, 'Welcome to ShopPilot! Browse products,')
+      : '';
+    if (displayMessage) setMessages((current) => [...current, { role: 'assistant', text: displayMessage, choices: data.choices || [], choiceAction: data.choiceAction || 'add', comparison: data.comparison || null }]);
   }
 
   async function runRequest(request) {
@@ -67,23 +96,122 @@ export default function App() {
   function sendMessage(value = draft) {
     const message = value.trim();
     if (!message || busy || phase !== 'shop') return;
+    stopSpeechPlayback();
     setMessages((current) => [...current, { role: 'user', text: message }]);
     setDraft('');
     runRequest(() => api('chat', { message }));
   }
 
+  function selectProductChoice(message, product) {
+    if (busy || phase !== 'shop') return;
+    stopSpeechPlayback();
+    const action = message.choiceAction || 'add';
+    const actionLabel = action === 'remove' ? 'Remove' : action === 'decrement' ? 'Reduce quantity of' : 'Add';
+    setMessages((current) => [...current, { role: 'user', text: `${actionLabel} ${product.title}` }]);
+    runRequest(async () => {
+      const data = await api('cart', { productId: product.id, action });
+      const cartItem = data.cart?.find((item) => item.product.id === product.id);
+      data.message = action === 'remove'
+        ? `Removed ${product.title} from your cart.`
+        : action === 'decrement'
+          ? cartItem ? `Reduced ${product.title} to ${cartItem.quantity} in your cart.` : `Removed the last ${product.title} from your cart.`
+          : `Added ${product.title} to your cart.`;
+      return data;
+    });
+  }
+
+  function stopSpeechPlayback() {
+    window.speechSynthesis?.cancel();
+    speechRef.current = null;
+    setSpeakingMessage(null);
+  }
+
+  function speakAssistantMessage(message, index) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      setError('Spoken replies are not available in this browser. Try Chrome or Edge.');
+      return;
+    }
+    if (speakingMessage === index && window.speechSynthesis.speaking) {
+      stopSpeechPlayback();
+      return;
+    }
+
+    const choiceProducts = (message.choices || []).map((id) => products.find((product) => product.id === id)).filter(Boolean);
+    const spokenChoices = choiceProducts.length
+      ? `Suggested products: ${choiceProducts.slice(0, 6).map((product) => `${product.title}. ${product.description || ''} Price ${money(product.price)}.`).join(' ')}${choiceProducts.length > 6 ? ` And ${choiceProducts.length - 6} more options are shown.` : ''}`
+      : '';
+    const spokenComparison = (message.comparison || []).map((product) =>
+      `${product.title}: price ${money(product.price)}, rating ${Number(product.rating || 0).toFixed(1)} out of 5, discount ${Number(product.discountPercentage || 0).toFixed(1)} percent, ${product.availabilityStatus || `${product.stock} in stock`}.`
+    ).join(' ');
+    const utterance = new window.SpeechSynthesisUtterance([message.text, spokenChoices, spokenComparison].filter(Boolean).join(' '));
+    utterance.lang = 'en-US';
+    utterance.rate = 0.92;
+    utterance.pitch = 1.08;
+    utterance.volume = 1;
+    stopSpeechPlayback();
+    speechRef.current = utterance;
+    setSpeakingMessage(index);
+    utterance.onend = () => {
+      if (speechRef.current === utterance) stopSpeechPlayback();
+    };
+    utterance.onerror = () => {
+      if (speechRef.current === utterance) {
+        speechRef.current = null;
+        setSpeakingMessage(null);
+        setError('The spoken reply could not be played.');
+      }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
   function startVoiceInput() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { setError('Voice input is not available in this browser. Try Chrome or Edge.'); return; }
+    if (!SpeechRecognition) { setError('Voice input is not available in this browser. Try Chrome or Edge, or type your request below.'); return; }
+    stopSpeechPlayback();
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => { const text = event.results[0][0].transcript; setDraft(text); sendMessage(text); };
-    recognition.onerror = (event) => setError(event.error === 'not-allowed' ? 'Allow microphone access and try again.' : `Voice input stopped (${event.error}).`);
-    recognition.onend = () => setListening(false);
+    let finalTranscript = '';
+    let currentTranscript = '';
+    let sendTimer;
+    let submitted = false;
+    const finishVoiceInput = () => {
+      window.clearTimeout(sendTimer);
+      setListening(false);
+      setVoiceText('');
+      const message = currentTranscript.trim() || finalTranscript.trim();
+      if (message && !submitted) {
+        submitted = true;
+        sendMessage(message);
+      }
+    };
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0].transcript;
+        if (event.results[index].isFinal) finalTranscript += transcript;
+        else interimTranscript += transcript;
+      }
+      currentTranscript = `${finalTranscript} ${interimTranscript}`.trim();
+      setVoiceText(currentTranscript);
+      window.clearTimeout(sendTimer);
+      if (currentTranscript) {
+        sendTimer = window.setTimeout(() => {
+          recognition.stop();
+          finishVoiceInput();
+        }, VOICE_PAUSE_BEFORE_SEND_MS);
+      }
+    };
+    recognition.onerror = (event) => {
+      window.clearTimeout(sendTimer);
+      setListening(false);
+      setError(event.error === 'not-allowed' ? 'Allow microphone access and try again.' : `Voice input stopped (${event.error}).`);
+    };
+    recognition.onend = finishVoiceInput;
     voiceRef.current = recognition;
-    try { recognition.start(); setListening(true); setError(''); }
+    try { recognition.start(); setListening(true); setVoiceText(''); setError(''); }
     catch (reason) { setError(reason.message); setListening(false); }
   }
 
@@ -128,8 +256,8 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">S</span><span>shoppilot<span className="brand-period">.</span></span></a>
-        <div className="topbar-right"><span className="environment"><span className="green-dot" /> DUMMYJSON STOREFRONT</span><button className="reset-button" onClick={restart} disabled={busy}>New session <span>↻</span></button></div>
+        <a className="brand" href="#top"><span className="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 10h5l5 22h20l5-16H15"/><circle cx="20" cy="39" r="2.5"/><circle cx="35" cy="39" r="2.5"/></svg></span><span>shoppilot<span className="brand-period">.</span></span></a>
+        <div className="topbar-right"><span className="environment"><span className="green-dot" /> THE EVERYDAY EDIT</span><button className="reset-button" onClick={restart} disabled={busy}>New session <span>↻</span></button></div>
       </header>
 
       <main className="workspace" id="top">
@@ -137,13 +265,36 @@ export default function App() {
           <div className="panel-heading chat-heading"><div className="assistant-avatar">✳</div><div><h1>Shopping assistant</h1><p>Ask for an item in your own words</p></div><span className="live-label"><span className="green-dot" /> LIVE</span></div>
           <div className="chat-transcript" aria-live="polite">
             <div className="date-divider"><span>PRODUCT ASSISTANT</span></div>
+            {!messages.some((message) => message.role === 'user') && phase === 'shop' && <div className="chat-welcome">
+              <span className="welcome-kicker">A BETTER WAY TO SHOP</span>
+              <h2>What are you looking for?</h2>
+              <p>Tell me what you need. I can find products, compare options, and help manage your bag.</p>
+              <div className="prompt-suggestions">
+                <button type="button" onClick={() => sendMessage('Find me a skincare product under $20')}>Skincare under $20 <span>↗</span></button>
+                <button type="button" onClick={() => sendMessage('Show me highly rated beauty products')}>Top-rated beauty picks <span>↗</span></button>
+                <button type="button" onClick={() => sendMessage('Find a useful gift under $25')}>A useful gift under $25 <span>↗</span></button>
+                <button type="button" onClick={() => sendMessage('I want to compare two products')}>Compare products <span>↗</span></button>
+              </div>
+            </div>}
             {messages.map((message, index) => <div className={`message-row ${message.role}`} key={`${index}-${message.role}`}>
               {message.role === 'assistant' && <div className="message-avatar">✳</div>}
               <div className="message-content"><div className="message-bubble">{message.text}</div>
-                {message.choices?.length > 0 && <div className="product-choices">{message.choices.map((id) => {
+                  {message.role === 'assistant' && <button className="listen-reply-button" type="button" aria-pressed={speakingMessage === index} onClick={() => speakAssistantMessage(message, index)}>{speakingMessage === index ? 'Stop audio' : 'Listen to reply'}</button>}
+                  {message.choices?.length > 0 && <div className="product-choices">{[...new Set(message.choices)].map((id) => {
                   const product = products.find((item) => item.id === id);
-                  return product ? <button key={id} type="button" disabled={busy} onClick={() => sendMessage(`Add ${product.title}`)}>{product.title} · {money(product.price)}</button> : null;
+                  const action = message.choiceAction === 'remove' ? 'Remove' : message.choiceAction === 'decrement' ? 'Reduce quantity of' : 'Add';
+                  return product ? <button className="product-choice-card" key={id} type="button" aria-label={`${action} ${product.title}`} disabled={busy} onClick={() => selectProductChoice(message, product)}>
+                    <img src={product.thumbnail} alt="" loading="lazy" />
+                    <span className="choice-copy"><strong>{product.title}</strong><small>{product.description}</small><b>{money(product.price)}</b></span>
+                  </button> : null;
                 })}</div>}
+                  {message.comparison?.length >= 2 && <div className="comparison-card" aria-label="Product comparison">
+                    <div className="comparison-table-wrap"><table><thead><tr><th scope="col">Product details</th>{message.comparison.map((product) => <th scope="col" key={product.id}><div className="comparison-product"><img src={product.thumbnail} alt="" loading="lazy"/><strong>{product.title}</strong></div></th>)}</tr></thead>
+                      <tbody>{compareFields.map(([label, getValue]) => <tr key={label}><th scope="row">{label}</th>{message.comparison.map((product) => <td key={product.id}>{getValue(product) ?? 'Not provided'}</td>)}</tr>)}</tbody>
+                    </table></div>
+                    {message.comparison.some((product) => product.description) && <div className="comparison-descriptions">{message.comparison.map((product) => <p key={product.id}><strong>{product.title}</strong>{product.description ? `: ${product.description}` : ''}</p>)}</div>}
+                    {message.comparison.some((product) => product.reviews?.length) && <div className="comparison-reviews">{message.comparison.map((product) => product.reviews?.length > 0 && <section key={product.id}><strong>{product.title} reviews</strong><ul>{product.reviews.map((review, index) => <li key={`${product.id}-${index}`}><span>{review.rating}/5{review.reviewerName ? ` - ${review.reviewerName}` : ''}</span><p>{review.comment}</p></li>)}</ul></section>)}</div>}
+                  </div>}
               </div>
             </div>)}
             {busy && <div className="typing"><span /><span /><span /> Updating your store</div>}
@@ -157,19 +308,28 @@ export default function App() {
             {phase === 'review' && <button data-testid="place-order" className="primary-button place-order" onClick={() => runRequest(() => api('order'))} disabled={busy}>Place demo order <span>→</span></button>}
             <div ref={transcriptEnd} />
           </div>
-          <div className="composer-area"><form className="composer" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
-            <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={listening ? 'Listening...' : 'Try “something for dry skin”...'} aria-label="Message the shopping assistant" disabled={busy || phase !== 'shop'} />
-            <button className={`mic-button ${listening ? 'recording' : ''}`} type="button" onClick={() => listening ? voiceRef.current?.stop() : startVoiceInput()} disabled={busy || phase !== 'shop'} aria-label={listening ? 'Stop voice input' : 'Speak your message'} title={listening ? 'Stop listening' : 'Speak your message'}>{listening ? 'Stop' : '🎙'}</button>
-            <button className="send-button" type="submit" disabled={busy || phase !== 'shop' || !draft.trim()} aria-label="Send message">Send</button>
-          </form><div className="composer-foot"><span>{aiStatus === 'ready' ? 'OpenAI assistant connected' : aiStatus === 'configured' ? 'OpenAI key loaded' : aiStatus === 'forbidden' ? 'OpenAI access denied (403)' : aiStatus === 'rate_limited' ? 'OpenAI quota/limit reached' : aiStatus === 'unavailable' ? 'OpenAI unavailable · exact titles work' : 'OPENAI_API_KEY missing · exact titles work'}</span><span>{products.length} products</span></div></div>
+          <div className="composer-area">
+            <div className={`voice-first ${listening ? 'is-listening' : ''}`}>
+              <button className={`voice-primary ${listening ? 'recording' : ''}`} type="button" onClick={() => listening ? voiceRef.current?.stop() : startVoiceInput()} disabled={busy || phase !== 'shop'} aria-label={listening ? 'Finish voice request' : 'Start voice request'}>
+                <span className="voice-mic-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8"/></svg></span>
+                <span>{listening ? 'Listening… tap to send' : 'Tap to speak'}</span>
+              </button>
+              <div className="voice-guidance"><strong>{voiceText || (listening ? 'I’m listening for your request' : 'Tell me what you’re shopping for')}</strong><small>{listening ? 'Pause for 3 seconds or tap to send' : 'Try: “Find me a highly rated gift under $25”'}</small></div>
+            </div>
+            <div className="text-entry-label"><span>Or type your request</span><small>Product, budget, or what you need</small></div>
+            <form className="composer text-composer" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
+              <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Type your product request…" aria-label="Message the shopping assistant" disabled={busy || phase !== 'shop'} />
+              <button className="send-button" type="submit" disabled={busy || phase !== 'shop' || !draft.trim()} aria-label="Send message">Send</button>
+            </form>
+          </div>
         </section>
 
-        <section className="store-panel" aria-label="DummyJSON product storefront">
-          <div className="store-banner"><div><span className="eyebrow">THE EVERYDAY EDIT</span><h2>Find your next favorite.</h2><p>Thoughtful picks across beauty, tech, fashion, and more.</p></div><div className="banner-orb">✳</div></div>
-          {phase === 'connecting' && <div className="store-state"><div className="loader" /><h2>Loading the live product catalog</h2><p>Connecting to dummyjson.com/products</p></div>}
+        <section className="store-panel" aria-label="The Everyday Edit storefront">
+          <div className="store-banner"><div><span className="eyebrow">THE EVERYDAY EDIT</span><h2>Find your next favorite.</h2><p>Thoughtful picks across beauty, tech, fashion, and more.</p></div><div className="banner-orb" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 10h5l5 22h20l5-16H15"/><circle cx="20" cy="39" r="2.5"/><circle cx="35" cy="39" r="2.5"/></svg></div></div>
+          {phase === 'connecting' && <div className="store-state"><div className="loader" /><h2>Finding today's picks</h2><p>Getting the store ready for you</p></div>}
           {phase === 'error' && <div className="store-state"><h2>Store unavailable</h2><p>{error}</p><button className="primary-button" onClick={restart}>Try again</button></div>}
           {phase === 'shop' && <>
-            <div className="store-toolbar"><div><h2>Shop all products</h2><p>{shownProducts.length} items from DummyJSON</p></div><button className="cart-button" data-testid="open-cart" onClick={() => setCartOpen(true)}>Bag <span>({cartCount})</span></button></div>
+            <div className="store-toolbar"><div><h2>Shop all products</h2><p>{shownProducts.length} products to explore</p></div><button className="cart-button" data-testid="open-cart" onClick={() => setCartOpen(true)}>Bag <span>({cartCount})</span></button></div>
             <div className="filters"><label className="search-box"><span>⌕</span><input data-testid="product-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" aria-label="Search products" /></label>
               <select aria-label="Filter category" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">All categories</option>{categories.map((item) => <option value={item} key={item}>{item}</option>)}</select>
               <select aria-label="Sort products" value={sort} onChange={(event) => setSort(event.target.value)}><option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="rating">Top rated</option></select>
@@ -187,7 +347,6 @@ export default function App() {
             {phase === 'complete' && <button className="primary-button" onClick={restart}>Continue shopping</button>}
           </div>}
           {error && <div className="error-banner" role="alert">{error}</div>}
-          <div className="store-footnote"><span><span className="green-dot" /> LIVE DATA</span><span>Powered by DummyJSON · Demo checkout only</span></div>
         </section>
       </main>
 

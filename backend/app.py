@@ -40,7 +40,7 @@ def cart_total():
     return round(sum(item["product"]["price"] * item["quantity"] for item in cart_items()), 2)
 
 
-def payload(message="", *, choices=None):
+def payload(message="", *, choices=None, choice_action="add", comparison=None):
     data = {
         "message": message,
         "phase": phase,
@@ -52,6 +52,9 @@ def payload(message="", *, choices=None):
     }
     if choices:
         data["choices"] = choices
+        data["choiceAction"] = choice_action
+    if comparison is not None:
+        data["comparison"] = comparison
     return data
 
 
@@ -68,10 +71,17 @@ def fetch_catalog():
     for item in products:
         if not isinstance(item, dict) or not all(key in item for key in required):
             continue
-        normalized.append({key: item.get(key) for key in (
+        product = {key: item.get(key) for key in (
             "id", "title", "description", "category", "price", "discountPercentage",
-            "rating", "stock", "brand", "thumbnail", "images", "availabilityStatus", "tags"
-        )})
+            "rating", "stock", "brand", "thumbnail", "images", "availabilityStatus", "tags",
+            "sku", "weight", "dimensions", "warrantyInformation", "shippingInformation",
+            "returnPolicy", "minimumOrderQuantity"
+        )}
+        product["reviews"] = [
+            {key: review.get(key) for key in ("rating", "comment", "date", "reviewerName")}
+            for review in item.get("reviews", []) if isinstance(review, dict)
+        ]
+        normalized.append(product)
     if not normalized:
         raise ValueError("DummyJSON products did not contain the required product fields.")
     return normalized
@@ -91,6 +101,43 @@ def find_exact_title(message):
     return matches
 
 
+def is_remove_request(message):
+    """Recognize remove wording for the exact-title fallback when OpenAI is unavailable."""
+    return bool(re.search(r"\b(remove|delete|drop|take\s+out)\b", message, re.IGNORECASE))
+
+
+def is_decrement_request(message):
+    """Recognize requests to lower an item's quantity by one in the exact-title fallback."""
+    return bool(re.search(
+        r"\b(decrease|decrement|reduce|lower)\b|\b(?:one|1)\s+(?:less|fewer)\b|"
+        r"\bremove\s+(?:just\s+)?(?:one|1)\b|\btake\s+(?:one|1)\s+(?:off|out)\b",
+        message,
+        re.IGNORECASE,
+    ))
+
+
+def is_compare_request(message):
+    """Recognize comparison phrasing for exact-title fallback when OpenAI is unavailable."""
+    return bool(re.search(
+        r"\b(compare|comparison|versus|vs\.?|contrast|differences?)\b|\bbetter\s+than\b|\bwhich\s+(?:one|is better)\b",
+        message,
+        re.IGNORECASE,
+    ))
+
+
+def is_catalog_listing_reply(reply):
+    """Recognize when the model answered a catalog-browse request with prose."""
+    if not isinstance(reply, str):
+        return False
+    introductory_list = re.search(
+        r"\bhere (?:are|is) (?:the )?products?\b|\bproducts? in (?:this|the) catalog\b|\bavailable products\b",
+        reply,
+        re.IGNORECASE,
+    )
+    numbered_items = re.findall(r"(?:^|\s)\d+[.)]\s+", reply)
+    return bool(introductory_list or len(numbered_items) >= 3)
+
+
 def interpret_with_gpt(message):
     """Use OpenAI to interpret intent only against the current DummyJSON catalog."""
     global ai_status
@@ -100,7 +147,9 @@ def interpret_with_gpt(message):
         return None
 
     model_catalog = [{key: product.get(key) for key in (
-        "id", "title", "description", "category", "price", "stock", "brand", "tags"
+        "id", "title", "description", "category", "price", "discountPercentage", "rating",
+        "stock", "brand", "tags", "weight", "dimensions", "warrantyInformation",
+        "shippingInformation", "returnPolicy", "minimumOrderQuantity"
     )} for product in catalog]
     instructions = (
         "You are ShopPilot, a shopping assistant for the store described by the live catalog. "
@@ -111,8 +160,23 @@ def interpret_with_gpt(message):
         "products, and the plausible catalog IDs in options; the user will choose. Never add all possible "
         "matches for an ambiguous request. For requests that explicitly name multiple products, return those "
         "IDs only. Never invent products, IDs, prices, or stock. If a requested product is out of stock, say so. "
-        "Recognize checkout intent. For unrelated requests, explain briefly that you can help shop this catalog. "
-        "Respond as strict JSON with keys intent, products, options, and reply. Do not claim cart changes unless "
+        "For removal requests, only consider products currently in the cart. Return intent remove with the exact "
+        "cart product IDs to remove. If the wording is ambiguous, return intent clarify, no products, plausible "
+        "cart product IDs in options, and choiceAction remove. Never remove products that are not in the cart. "
+        "When the user asks to decrease, reduce, or make a cart item's quantity one less, return intent decrement "
+        "with the matching current cart product IDs; the application will decrease each quantity by exactly one "
+        "and remove a line only if its quantity reaches zero. For ambiguous decrement requests, return intent "
+        "clarify with current cart IDs in options and choiceAction decrement. Keep decrement distinct from removing "
+        "the entire product line. "
+        "When the user asks to compare products, return intent compare and the IDs for two or three products they name or describe. "
+        "Use only the live catalog and its comparison details. If the user has not identified at least two products, return intent compare, "
+        "no products, and ask which two products they want compared. Never invent comparison facts. "
+        "Recognize checkout intent. When the user asks to list, show, or browse products, return intent browse, "
+        "put the requested catalog product IDs in options (all in-stock IDs for a full-catalog request), and "
+        "write only a short introduction in reply; do not write a numbered text list. For unrelated requests, "
+        "explain briefly that you can help shop this catalog. "
+        "Use choiceAction add for add clarifications, remove for full-item removal, and decrement for quantity reductions. "
+        "Respond as strict JSON with keys intent, products, options, choiceAction, and reply. Do not claim cart changes unless "
         "the application confirms them.\n\n"
         f"Live product catalog: {json.dumps(model_catalog)}\n"
         f"Current cart: {json.dumps([{ 'id': item['product']['id'], 'title': item['product']['title'], 'quantity': item['quantity']} for item in cart_items()])}"
@@ -120,7 +184,7 @@ def interpret_with_gpt(message):
     schema = {
         "type": "object",
         "properties": {
-            "intent": {"type": "string", "enum": ["add", "checkout", "chat", "clarify"]},
+            "intent": {"type": "string", "enum": ["add", "remove", "decrement", "compare", "checkout", "chat", "clarify", "browse"]},
             "products": {"type": "array", "items": {
                 "type": "object", "properties": {
                     "id": {"type": "integer", "minimum": 1},
@@ -128,9 +192,10 @@ def interpret_with_gpt(message):
                 }, "required": ["id", "quantity"], "additionalProperties": False,
             }},
             "options": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+            "choiceAction": {"type": "string", "enum": ["add", "remove", "decrement"]},
             "reply": {"type": "string"},
         },
-        "required": ["intent", "products", "options", "reply"],
+        "required": ["intent", "products", "options", "choiceAction", "reply"],
         "additionalProperties": False,
     }
     response = OpenAI(api_key=api_key, timeout=30.0, max_retries=1).responses.create(
@@ -144,7 +209,7 @@ def interpret_with_gpt(message):
     if not response.output_text:
         raise ValueError("OpenAI returned no structured shopping response.")
     result = json.loads(response.output_text)
-    if result.get("intent") not in {"add", "checkout", "chat", "clarify"}:
+    if result.get("intent") not in {"add", "remove", "decrement", "compare", "checkout", "chat", "clarify", "browse"}:
         raise ValueError("OpenAI returned an invalid shopping response.")
     ai_status = "ready"
     return result
@@ -162,10 +227,37 @@ def valid_model_products(result):
     return valid
 
 
+def valid_comparison_products(result):
+    """Resolve model-selected comparison IDs to live catalog records, preserving catalog order."""
+    selected_ids = []
+    for choice in result.get("products", []):
+        product_id = choice.get("id") if isinstance(choice, dict) else None
+        if isinstance(product_id, int) and not isinstance(product_id, bool) and product_id not in selected_ids and product_for_id(product_id):
+            selected_ids.append(product_id)
+    return [product_for_id(product_id) for product_id in selected_ids[:3]]
+
+
 def valid_model_options(result):
     return [product_for_id(product_id) for product_id in result.get("options", [])
             if isinstance(product_id, int) and product_for_id(product_id)
             and product_for_id(product_id)["stock"] > 0]
+
+
+def valid_cart_products(result):
+    valid = []
+    for choice in result.get("products", []):
+        if not isinstance(choice, dict):
+            continue
+        product = product_for_id(choice.get("id"))
+        if product and str(product["id"]) in cart and product not in valid:
+            valid.append(product)
+    return valid
+
+
+def valid_cart_options(result):
+    return [product_for_id(product_id) for product_id in result.get("options", [])
+            if isinstance(product_id, int) and product_for_id(product_id)
+            and str(product_id) in cart]
 
 
 def add_product(product, quantity=1):
@@ -186,13 +278,13 @@ def start():
     try:
         catalog = fetch_catalog()
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
-        return jsonify({"error": f"Could not load products from DummyJSON: {error}"}), 502
+        return jsonify({"error": f"ShopPilot couldn't load products right now: {error}"}), 502
     cart = {}
     phase = "shop"
     conversation = []
     ai_status = "configured" if os.getenv("OPENAI_API_KEY") else "missing_key"
     ai_error_detail = ""
-    return jsonify(payload("Welcome! Browse the DummyJSON catalog, add items directly, or tell me what you are looking for."))
+    return jsonify(payload("Welcome to ShopPilot! Browse products, add items directly, or tell me what you are looking for."))
 
 
 @app.post("/api/chat")
@@ -218,9 +310,52 @@ def chat():
 
     if result is None:
         matches = find_exact_title(message)
-        result = {"intent": "add" if len(matches) == 1 else "clarify", "products": matches[:1],
-                  "options": [item["id"] for item in matches] if len(matches) > 1 else [], "reply": ""}
+        if is_compare_request(message):
+            result = {"intent": "compare", "products": matches[:3], "options": [], "choiceAction": "add",
+                      "reply": "Tell me the exact names of two or three products from the catalog and I'll compare their details."}
+        elif is_decrement_request(message):
+            cart_matches = [item for item in matches if str(item["id"]) in cart]
+            result = {
+                "intent": "decrement",
+                "products": cart_matches,
+                "options": [],
+                "choiceAction": "decrement",
+                "reply": "I couldn't find an exact product title from your cart. With AI unavailable, include the full title shown in your bag.",
+            }
+        elif is_remove_request(message):
+            cart_matches = [item for item in matches if str(item["id"]) in cart]
+            result = {
+                "intent": "remove",
+                "products": cart_matches,
+                "options": [],
+                "choiceAction": "remove",
+                "reply": "I couldn't find an exact product title from your cart. With AI unavailable, include the full title shown in your bag.",
+            }
+        else:
+            result = {"intent": "add" if len(matches) == 1 else "clarify", "products": matches[:1],
+                      "options": [item["id"] for item in matches] if len(matches) > 1 else [], "reply": ""}
+    elif result.get("intent") == "chat" and is_catalog_listing_reply(result.get("reply")):
+        # If the model describes the catalog as a numbered list instead of using
+        # the browse schema, show those same live items through visual cards.
+        result = {
+            **result,
+            "intent": "browse",
+            "products": [],
+            "options": [product["id"] for product in catalog if product["stock"] > 0],
+            "reply": "Here are the products in the catalog. Each card shows the product image, name, and description.",
+        }
     conversation.append({"role": "user", "content": message})
+
+    if result["intent"] == "compare":
+        compared = valid_comparison_products(result)
+        if len(compared) < 2:
+            answer = result.get("reply") or "Which two products would you like me to compare? You can name them or describe them."
+            conversation.append({"role": "assistant", "content": answer})
+            return jsonify(payload(answer))
+        names = " and ".join(product["title"] for product in compared)
+        answer = result.get("reply") or f"Here's a side-by-side comparison of {names}."
+        conversation.append({"role": "assistant", "content": answer})
+        return jsonify(payload(answer, comparison=compared))
 
     if result["intent"] == "checkout":
         if not cart:
@@ -231,12 +366,74 @@ def chat():
         conversation.append({"role": "assistant", "content": answer})
         return jsonify(payload(answer))
 
-    if result["intent"] == "clarify":
+    if result["intent"] == "browse":
         options = valid_model_options(result)
-        if options:
-            answer = result.get("reply") or "Which one would you like? Select a product to add it to your cart."
+        if not options:
+            options = [product for product in catalog if product["stock"] > 0]
+        answer = result.get("reply") or "Here are the products in the catalog. Select an item to add it to your bag."
+        conversation.append({"role": "assistant", "content": answer})
+        return jsonify(payload(answer, choices=[product["id"] for product in options]))
+
+    if result["intent"] == "remove":
+        options = valid_cart_options(result)
+        if options and not result.get("products"):
+            answer = result.get("reply") or "Which item from your bag should I remove?"
             conversation.append({"role": "assistant", "content": answer})
-            return jsonify(payload(answer, choices=[product["id"] for product in options]))
+            return jsonify(payload(answer, choices=[product["id"] for product in options], choice_action="remove"))
+        matches = valid_cart_products(result)
+        if not matches:
+            answer = result.get("reply") or ("Your cart is empty." if not cart else "I couldn't find that product in your cart.")
+            conversation.append({"role": "assistant", "content": answer})
+            return jsonify(payload(answer))
+        for product in matches:
+            cart.pop(str(product["id"]), None)
+        removed_titles = ", ".join(product["title"] for product in matches)
+        answer = f"Removed {removed_titles} from your cart. Your cart has {cart_count()} item(s)."
+        conversation.append({"role": "assistant", "content": answer})
+        return jsonify(payload(answer))
+
+    if result["intent"] == "decrement":
+        options = valid_cart_options(result)
+        if options and not result.get("products"):
+            answer = result.get("reply") or "Which item's quantity should I reduce by one?"
+            conversation.append({"role": "assistant", "content": answer})
+            return jsonify(payload(answer, choices=[product["id"] for product in options], choice_action="decrement"))
+        matches = valid_cart_products(result)
+        if not matches:
+            answer = result.get("reply") or ("Your cart is empty." if not cart else "I couldn't find that product in your cart.")
+            conversation.append({"role": "assistant", "content": answer})
+            return jsonify(payload(answer))
+        reduced_titles = []
+        removed_titles = []
+        for product in matches:
+            product_id = str(product["id"])
+            remaining = cart[product_id] - 1
+            if remaining <= 0:
+                cart.pop(product_id)
+                removed_titles.append(product["title"])
+            else:
+                cart[product_id] = remaining
+                reduced_titles.append(f"{product['title']} ({remaining} left)")
+        changes = []
+        if reduced_titles:
+            changes.append(f"Reduced quantity: {', '.join(reduced_titles)}")
+        if removed_titles:
+            changes.append(f"Removed the last item: {', '.join(removed_titles)}")
+        answer = f"{' '.join(changes)}. Your cart has {cart_count()} item(s)."
+        conversation.append({"role": "assistant", "content": answer})
+        return jsonify(payload(answer))
+
+    if result["intent"] == "clarify":
+        choice_action = result.get("choiceAction", "add")
+        options = valid_cart_options(result) if choice_action in {"remove", "decrement"} else valid_model_options(result)
+        if options:
+            answer = result.get("reply") or (
+                "Which item from your bag should I remove?" if choice_action == "remove" else
+                "Which item's quantity should I reduce by one?" if choice_action == "decrement" else
+                "Which one would you like? Select a product to add it to your cart."
+            )
+            conversation.append({"role": "assistant", "content": answer})
+            return jsonify(payload(answer, choices=[product["id"] for product in options], choice_action=choice_action))
 
     if result["intent"] != "add":
         answer = result.get("reply") or "Tell me what you would like from the product catalog."
@@ -281,7 +478,16 @@ def update_cart():
             return jsonify({"error": "This item is out of stock."}), 409
         cart[product_id] = min(product["stock"], cart.get(product_id, 0) + 1)
     elif action == "remove":
-        cart.pop(product_id, None)
+        if product_id not in cart:
+            return jsonify({"error": "That product is not in your cart."}), 404
+        cart.pop(product_id)
+    elif action == "decrement":
+        if product_id not in cart:
+            return jsonify({"error": "That product is not in your cart."}), 404
+        if cart[product_id] <= 1:
+            cart.pop(product_id)
+        else:
+            cart[product_id] -= 1
     elif action == "quantity":
         try:
             quantity = int(body.get("quantity", 0))
@@ -292,7 +498,7 @@ def update_cart():
         else:
             cart[product_id] = min(product["stock"], quantity)
     else:
-        return jsonify({"error": "Choose add, remove, or quantity."}), 400
+        return jsonify({"error": "Choose add, remove, decrement, or quantity."}), 400
     return jsonify(payload())
 
 

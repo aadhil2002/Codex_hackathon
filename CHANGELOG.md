@@ -1,11 +1,165 @@
 # Change log
 
-## 2026-10-11T03:34:00+05:30 - Build DummyJSON-backed shopping storefront
+## 2026-10-11T05:41:00+05:30 - Adjust spoken reply modulation
 
-- Changed: Replaced the SauceDemo browser session with a React storefront populated by `https://dummyjson.com/products`, a Flask catalog/cart/checkout API, a product chat, category/search/sort controls, and product images. Replaced SauceDemo tests with Python Playwright storefront tests for rendering, filtering, cart edits, and checkout. Updated README and submission details; cleared the API key value from `.env.example`.
+- Changed: Slowed speech synthesis slightly and raised its pitch for a more conversational delivery.
+- Why: Make spoken recommendations and product comparisons easier to follow.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: Voice timbre still depends on the voice available in the user's browser or operating system.
+
+## 2026-10-11T05:38:00+05:30 - Add spoken assistant replies
+
+- Changed: Added a per-reply listen/stop control using browser speech synthesis. Playback reads the assistant text and includes product suggestions or key comparison facts; it stops when a new voice or text request begins.
+- Why: Let shoppers hear product recommendations and comparisons while using the voice-first chat.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: Spoken output depends on browser speech synthesis support and installed voices.
+
+## 2026-10-11T05:31:00+05:30 - Remove catalog provider wording from Markdown
+
+- Changed: Replaced provider names and URLs in Markdown documentation with neutral public-catalog descriptions across the README, submission notes, AI usage record, and changelog.
+- Why: Keep the requested provider keyword out of all Markdown files while retaining the setup, data-source, and limitation details.
+- Validation: Searched all Markdown files for the provider name and ran `git diff --check`.
+- Limitations: The application still fetches its live catalog from the configured API endpoint.
+
+## 2026-10-11T05:21:00+05:30 - Extend voice input pause interval
+
+- Changed: Keep speech recognition open across short pauses and wait three seconds after the latest speech before submitting; users can tap the microphone to submit earlier. Updated the voice guidance and README.
+- Why: Give users more time to finish longer spoken shopping requests before the chatbot receives them.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: Recognition duration and accuracy still depend on browser speech recognition support.
+
+## 2026-10-11T05:19:00+05:30 - Include pasted product attributes in comparisons
+
+- Changed: Added SKU and tags to the comparison table and show the available review ratings and comments for each compared product. Product normalization now omits reviewer email addresses.
+- Why: Use the extra details in the provided grocery product records when shoppers compare items, while keeping unnecessary reviewer contact data out of the app response.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: The attachment includes complete records through product ID 29 and an unfinished trailing record; catalog products continue to load from the configured public catalog API.
+
+## 2026-10-11T05:11:00+05:30 - Add chatbot product comparison
+
+- Changed: Preserve additional comparison fields returned by the live catalog, add a model-driven compare intent with exact-title fallback, and render selected products in a side-by-side chatbot table. Added a welcome prompt to start comparing products and documented the behavior.
+- Why: Help shoppers compare catalog items without leaving the conversation or relying only on product names and prices.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: Comparison quality depends on the product fields supplied by the catalog API and product matching depends on OpenAI; fallback requires exact product titles.
+
+## 2026-10-11T05:02:00+05:30 - Apply chatbot product choices directly to cart
+
+- Changed: Product cards shown for an add, remove, or decrement clarification now call the cart API for that exact product and action, then display a direct confirmation. The cart API now supports decrement and reports when removing or decrementing a product that is no longer present.
+- Why: Clicking a product from a chatbot clarification previously sent another natural-language request to the model, which could ask for clarification repeatedly instead of applying the selected action.
+- Validation: Frontend production build and `git diff --check` run for this change.
+- Limitations: Flask runtime was not exercised in this environment.
+
+## 2026-10-11T05:29:00+05:30 - Normalize legacy welcome text in chat
+
+- Changed: Convert any older backend greeting that names a provider catalog into a ShopPilot-branded welcome in the frontend.
+- Why: The chat intro should remain on-brand while a previously started Flask process is still running.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Refresh the storefront so the updated frontend applies to the existing conversation.
+
+## 2026-10-11T05:27:00+05:30 - Brand the assistant welcome as ShopPilot
+
+- Changed: Updated the initial assistant greeting to welcome users to ShopPilot and replaced the provider name in the product-load error with a store-facing message.
+- Why: Keep user-facing copy consistent with the ShopPilot brand.
+- Validation: `git diff --check` passed. Flask runtime not run.
+- Limitations: Restart Flask to show the new welcome copy.
+
+## 2026-10-11T05:25:00+05:30 - Decrement cart quantities through chat
+
+- Changed: Added a model `decrement` intent that lowers selected cart item quantities by one, removes the line only when the quantity reaches zero, and supports exact-title fallback when OpenAI is unavailable. Clarification cards preserve the decrement action.
+- Why: Let users adjust item counts through the main chat input, not only remove entire products.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Natural-language product matching requires an available OpenAI API; without it, include the exact product title.
+
+## 2026-10-11T04:52:00+05:30 - Replace decorative star with shopping cart icon
+
+- Changed: Replaced the starburst graphic in the store banner and the letter mark in the header with a consistent shopping cart SVG.
+- Why: Make the store identity immediately read as a shopping experience.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: None known.
+
+## 2026-10-11T04:51:00+05:30 - Keep product cards at full height in the catalog
+
+- Changed: Prevented catalog grid rows and product images from shrinking to fit the available panel height; the catalog now scrolls through full-height cards.
+- Why: The viewport-constrained layout was compressing each product card into a narrow horizontal strip.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Product catalog scrolling is contained within the storefront panel on desktop.
+
+## 2026-10-11T04:46:00+05:30 - Clean up storefront labels and fit desktop viewport
+
+- Changed: Replaced visible provider/debug labels with The Everyday Edit store branding, removed OpenAI configuration status from the chat footer, and sized the desktop app to the viewport with scrolling contained inside the chat/catalog panels. Updated README.
+- Why: Keep the presentation focused on shopping and prevent the desktop page from scrolling vertically.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Narrow/mobile layouts keep page scrolling so both stacked panels remain accessible.
+
+## 2026-10-11T04:43:00+05:30 - Focus the interface on shopping chat
+
+- Changed: Gave the assistant more layout space, added first-use prompt suggestions, emphasized voice input, and made the text composer continuously visible below the microphone action.
+- Why: Make conversation the clearest starting point while keeping keyboard input easy to find.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Voice input still depends on browser speech recognition support and microphone permission.
+
+## 2026-10-11T04:31:00+05:30 - Remove cart items through chat
+
+- Changed: Added a model remove intent, restricted chat removals to products in the current cart, and made ambiguous removal choices trigger remove actions from their visual cards. Exact-title removal also works in the no-API fallback.
+- Why: Let shoppers manage their bag naturally through the assistant.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: Natural-language product matching requires an available OpenAI API; without it, removal requires the full exact product title.
+
+## 2026-10-11T04:27:00+05:30 - Restyle storefront product cards
+
+- Changed: Matched the product cards to the supplied reference with a larger contained image area, category pill, more readable brand/title/description, rating and stock row, and separated price/action footer.
+- Why: Make the product listing easier to scan and closer to the requested visual design.
+- Validation: `git diff --check` and `npm run build` passed.
+- Limitations: The catalog's product text and images still come from the external catalog service.
+
+## 2026-10-11T04:25:00+05:30 - Normalize numbered catalog replies to product cards
+
+- Changed: Detect model replies that present a numbered catalog list and return live catalog choices for the existing image, name, description, and price cards. Documented the normalization.
+- Why: Keep a model response to “list the products” visual even when it ignores the browse response format.
+- Validation: `git diff --check` passed. Python/API runtime was not run.
+- Limitations: Visual browse still requires a live catalog and an available OpenAI response; restart Flask to load this backend change.
+
+## 2026-10-11T04:12:00+05:30 - Render catalog browsing as product cards
+
+- Changed: Added a model `browse` intent that returns catalog IDs as visual choices when the user asks to list or browse products. The chat now reuses image/title/description/price cards instead of displaying a numbered text list. Updated README behavior notes.
+- Why: Make catalog discovery visual and consistent with product disambiguation.
+- Validation: `npm run build` and `git diff --check` passed.
+- Limitations: Natural-language browse intent depends on a configured, available OpenAI API.
+
+## 2026-10-11T04:10:00+05:30 - Make voice the primary shopping input
+
+- Changed: Promoted the microphone to the main assistant action, added an animated listening state and live transcript, and made typing an explicit secondary option. Updated setup guidance.
+- Why: Make spoken shopping requests the central interaction for the demo.
+- Validation: `npm run build` and `git diff --check` passed.
+- Limitations: Speech recognition requires browser support and microphone permission.
+
+## 2026-10-11T04:04:00+05:30 - Show visual product cards in chat choices
+
+- Changed: Replaced text-only clarification buttons with selectable cards showing each product thumbnail, title, short description, and price.
+- Why: Make it easier to distinguish similar products before selecting one from the assistant's suggestions.
+- Validation: `npm run build` and `git diff --check` passed.
+- Limitations: Product images and details depend on the live catalog response and image CDN.
+
+## 2026-10-11T04:01:00+05:30 - Contain product images within cards
+
+- Changed: Constrained catalog thumbnails to the card image pane with max dimensions, flex centering, and overflow clipping; adjusted image pane height at desktop and mobile breakpoints.
+- Why: Prevent tall or unusually sized product images from overlapping product titles, descriptions, and prices.
+- Validation: Frontend production build and `git diff --check` passed.
+- Limitations: Visual browser verification was not available in this workspace.
+
+## 2026-10-11T03:37:00+05:30 - Guard the transcript scroll effect on selected checkpoint
+
+- Changed: Converted the transcript-scroll effect to a block body with a `scrollIntoView` feature check; deduplicated selectable model options before rendering.
+- Why: Fix the React effect return warning/runtime error and avoid duplicate React keys when running from commit `6d5296a`.
+- Validation: `npm run build` passed. Python tests and browser console inspection were unavailable in this workspace.
+- Limitations: This checkout is based on the selected `6d5296a` commit; the fix is recorded on a separate branch.
+
+## 2026-10-11T03:34:00+05:30 - Build live-catalog shopping storefront
+
+- Changed: Replaced the SauceDemo browser session with a React storefront populated by the public products endpoint, a Flask catalog/cart/checkout API, a product chat, category/search/sort controls, and product images. Replaced SauceDemo tests with Python Playwright storefront tests for rendering, filtering, cart edits, and checkout. Updated README and submission details; cleared the API key value from `.env.example`.
 - Why: Use the requested sample product data to create a local shopping UI and automate its end-to-end flow.
 - Validation: `npm run build` and `git diff --check` passed. Python/Playwright tests could not run because Python is not installed in this workspace.
-- Limitations: The app and E2E tests need internet access to DummyJSON; natural-language chat also needs a valid OpenAI API key.
+- Limitations: The app and E2E tests need internet access to the product catalog API; natural-language chat also needs a valid OpenAI API key.
 
 ## 2026-10-11T03:14:00+05:30 - Let the LLM select catalog matches
 
