@@ -1,47 +1,95 @@
-# Project submission
+# ShopPilot — live catalog shopping assistant
 
-Complete repository and participant details before submission. Follow the organizers' announced submission method.
+ShopPilot is a React storefront populated from a public product catalog API. The UI presents each live item in a product card with a category badge, contained image, brand, name, description, rating, stock, price, and add-to-bag action. It also includes category filtering, search, sorting, a shopping bag, and sample checkout. A chat assistant can find products from natural descriptions, add them to the bag, reduce item quantities, and remove items. Python Playwright tests automate the storefront UI and cover browsing, cart changes, and checkout.
 
-## Project
+The storefront is branded as **The Everyday Edit**, and the chat opens with a ShopPilot welcome and starter requests. On desktop, the app fits the viewport without page-level vertical scrolling; the conversation and product catalog scroll inside their panels as needed.
 
-- **Project name:** ShopPilot — chat shopping with a Playwright preview
-- **Short description:** A React shopping assistant powered by OpenAI's API that accepts typed or spoken requests, maps them to validated live catalog products, and shows Playwright controlling the practice store alongside the conversation.
-- **Code repository URL:** TODO
-- **Final submitted implementation commit SHA:** TODO
-- **Working demo URL:** Run locally; follow README setup, then open `http://127.0.0.1:5173`.
-- **Run the demo:** Double-click `run_shoppilot.bat` after installing prerequisites, or start the Flask API and Vite UI in separate terminals.
-- **Demo access requirements:** An OpenAI API key in the local `.env` file enables GPT chat; microphone permission is optional for voice input. Exact-title matching remains available without an API key.
+The assistant is voice-first: select **Tap to speak**, allow microphone access, and say what you need. It keeps listening through short pauses and submits after three seconds of silence; tap the microphone control to submit sooner. Assistant replies have a **Listen to reply** control that speaks the response, product suggestions, or comparison summary using the browser's available English voice at a slightly slower, conversational pace. A text input is also visible directly below the voice control. Voice input and output depend on browser support and microphone permission.
 
-## Participants
+When you ask the assistant to list or browse products, it presents visual product cards with images, names, descriptions, and prices. If the model replies with a numbered catalog list, Flask converts that response to the same visual cards.
 
-| Participant name | GitHub handle | Contribution |
-| --- | --- | --- |
-| TODO | TODO | TODO |
+The product catalog is a public sample API. Orders are stored only in the local Flask process; checkout is a demo and takes no payment.
 
-## Run and demonstrate
+## Requirements
 
-- **Prerequisites:** Python 3.10+, Node.js 20.19+, npm, and internet access.
-- **Install command:** `python -m pip install -r requirements.txt`, `python -m playwright install chromium`, copy `.env.example` to `.env`, add `OPENAI_API_KEY`, and run `cd frontend; npm install`.
-- **Required environment variables:** `OPENAI_API_KEY` enables OpenAI Responses API chat (default model `gpt-5.4-mini`); it is optional for exact-title fallback. `OPENAI_MODEL` may override the model.
-- **Test command:** `python -m pytest -v` (standalone Playwright checks).
-- **Demo walkthrough:** Browse the React storefront populated from a public product catalog API, search/filter the catalog, add or remove products and adjust quantities, then enter sample delivery details and place a demo order. The chat assistant can match natural product requests when OpenAI is configured. Python Playwright automates the same UI end to end.
-- **Checks performed and results:** React production build passed with `npm run build`; Python/Playwright runtime checks were not run in this workspace.
-- **Known limitations:** The app supports one local shopping session. Product catalog and images depend on the public product API and image CDN. GPT matching depends on OpenAI model access and API billing; without a key, chat matching requires an exact product title. Checkout is simulated locally; no order or payment is sent to the catalog service.
-- **Libraries and data sources:** [React](https://react.dev/), [Vite](https://vite.dev/), [Flask](https://flask.palletsprojects.com/), [Playwright for Python](https://playwright.dev/python/), [pytest](https://pytest.org/), [OpenAI Python SDK](https://github.com/openai/openai-python), and the public product catalog API (`/products` endpoint). No private data used.
-- **AI usage record:** [AI_USAGE.md](AI_USAGE.md)
-- **Development change log:** [CHANGELOG.md](CHANGELOG.md)
+- Python 3.10 or newer and pip
+- Node.js 20.19 or newer and npm
+- Internet access to the product catalog API and its image CDN
+- An OpenAI API key with API billing enabled for natural-language product matching (optional for browsing and exact-title matching)
 
-## Submission checklist
+## Install
 
-- [ ] The project implementation started from scratch at the event.
-- [ ] I participated solo or with no more than 4 team members in total.
-- [ ] Codex was used during development and its usage is documented.
-- [ ] The code repository URL, short description, and working demo are provided.
-- [ ] README setup and demo instructions match the submitted code.
-- [ ] Actual checks and known limitations are documented.
-- [ ] Meaningful changes are documented and committed throughout development.
-- [ ] The final implementation is committed and pushed, and its SHA is recorded above.
-- [ ] No credentials or private data are included in the repository or demo instructions.
-- [ ] The organizers' announced submission method and timing have been followed.
+From the project folder:
 
-Event reference: [DevDay Exchange Community: Kochi on Luma](https://luma.com/z10nz8gp). The event wraps up by **10:00 AM IST on 11 October 2026**.
+```powershell
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+Copy-Item .env.example .env
+cd frontend
+npm install
+```
+
+To enable natural-language chat, create an API key in the [OpenAI API platform](https://platform.openai.com/api-keys) and set `OPENAI_API_KEY` in the project-root `.env` file. Flask reads the key; it is not sent to React. `OPENAI_MODEL` can optionally select a model. API use is billed separately from ChatGPT; check [OpenAI API billing](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform).
+
+Without an OpenAI key, browsing and checkout still work. The chat fallback requires a full exact product title.
+
+## Run the storefront
+
+On Windows, double-click `run_shoppilot.bat` to start Flask and Vite. Keep both terminal windows open and visit **http://127.0.0.1:5173**.
+
+Or start two terminals from the project folder.
+
+Terminal 1:
+
+```powershell
+python backend/app.py
+```
+
+Terminal 2:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+The Flask server fetches the public catalog's `/products` endpoint, then the React storefront displays the returned items. Search, filter by category, sort, add/remove products, change quantities, and check out using sample delivery details. Product images load from the URLs included in the API response.
+
+## Run the Python Playwright tests
+
+Start both servers as described above, then run this in a third terminal from the project folder:
+
+```powershell
+python -m pytest -v
+```
+
+The tests use headless Chromium and automate the running UI at `http://127.0.0.1:5173`. Set `SHOPPILOT_UI_URL` to use a different UI address. To adjust action pacing, pass `--slow-mo 300` (milliseconds):
+
+```powershell
+python -m pytest -v --slow-mo 300
+```
+
+Build the frontend production bundle with:
+
+```powershell
+cd frontend
+npm run build
+```
+
+## OpenAI behavior
+
+The model receives the current catalog's IDs, titles, descriptions, categories, brands, prices, stock, and tags, plus the current cart. It decides which items fit a natural-language request and supplies selectable choices when it finds ambiguity. Selecting one of those product cards applies its displayed add, remove, or decrement action directly to that exact product, then confirms the cart update in chat. You can ask the assistant to compare two or three products by name; it returns an API-backed side-by-side view with SKU, tags, price, discount, rating, availability, brand, category, shipping, returns, warranty, dimensions, weight, minimum order quantity, and available review snippets. The compare suggestion in the welcome panel starts that conversation. Product comparison uses extra fields from the live catalog response; it does not require another external API. Reviewer emails are omitted from the storefront response. You can also ask it to add a product, reduce its quantity by one, or remove it by name or description; quantity changes and removals are limited to items already in the bag. Browse requests return visual product cards; a numbered text catalog response is also normalized to those cards. Flask validates returned IDs against the current API catalog and cart before changing the bag. Without an API response, add/remove/decrement requests require an exact product title, and compare requests require exact product titles.
+
+- **HTTP 401:** Check the API key in the project-root `.env` and restart Flask.
+- **HTTP 403:** Check the OpenAI project permissions and model access.
+- **HTTP 429:** Check API usage limits and billing.
+
+## Project files and limitations
+
+- `frontend/` — React storefront and chat assistant.
+- `backend/app.py` — Flask API, live catalog loader, cart/checkout state, and OpenAI integration.
+- `tests/` — Python Playwright end-to-end and matching tests.
+- `run_shoppilot.bat` — Windows launcher.
+
+The app supports one local shopping session at a time. Products require the external product catalog API; images require the linked CDN. AI matching requires a working OpenAI API key and model access. The checkout is a local demo and does not send orders to the external catalog service.
+
+See [SUBMISSION.md](SUBMISSION.md), [AI_USAGE.md](AI_USAGE.md), and [CHANGELOG.md](CHANGELOG.md) for project and development records.
